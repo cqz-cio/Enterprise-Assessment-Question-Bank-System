@@ -1,0 +1,11 @@
+# Object file
+*.o
+
+# Ada Library Information
+*.ali
+*.log
+yf-exam-api/.idea/
+yf-exam-api/target/
+yf-bev2-vue/.idea/
+yf-bev2-api/target/
+yf-bev2-api/.idea/

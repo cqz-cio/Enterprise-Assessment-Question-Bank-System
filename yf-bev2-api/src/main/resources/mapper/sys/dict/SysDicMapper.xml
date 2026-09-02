@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yf.system.modules.dict.mapper.SysDicMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.yf.system.modules.dict.entity.SysDic">
+        <id column="id" property="id"/>
+        <result column="dic_code" property="dicCode"/>
+        <result column="type" property="type"/>
+        <result column="title" property="title"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+</mapper>
