@@ -93,6 +93,7 @@ public class SysMenuController extends BaseController {
      */
 
     @Operation(summary = "查找详情")
+    @RequiresPermissions("sys:menu:paging")
     @PostMapping("/detail")
     public ApiRest<SysMenuDTO> find(@RequestBody BaseIdReqDTO reqDTO) {
         SysMenu entity = baseService.getById(reqDTO.getId());
@@ -108,6 +109,7 @@ public class SysMenuController extends BaseController {
      * @return
      */
     @Operation(summary = "菜单树结构", description = "一次性加载完全部数据，用于后端维护")
+    @RequiresPermissions("sys:menu:paging")
     @PostMapping("/tree")
     public ApiRest<List<MenuTreeRespDTO>> tree() {
         //分页查询并转换

@@ -5,6 +5,7 @@ import com.yf.ability.shiro.dto.SysUserLoginDTO;
 import com.yf.ability.shiro.jwt.JwtToken;
 import com.yf.ability.shiro.jwt.JwtUtils;
 import com.yf.ability.shiro.service.ShiroUserService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authc.AuthenticationException;
@@ -32,6 +33,14 @@ import java.util.List;
 public class MyShiroRealm extends AuthorizingRealm {
 
     private final ShiroUserService shiroUserService;
+    private final JwtUtils jwtUtils;
+
+    @PostConstruct
+    public void configureSecurityCaching() {
+        // 角色和权限变更必须即时生效，避免长期缓存继续放行旧授权。
+        setAuthenticationCachingEnabled(false);
+        setAuthorizationCachingEnabled(false);
+    }
 
 
     @Override
@@ -101,7 +110,10 @@ public class MyShiroRealm extends AuthorizingRealm {
     public SysUserLoginDTO checkToken(String token) throws AuthenticationException {
 
         try {
-            JwtUtils.getUsername(token);
+            String username = jwtUtils.getUsername(token);
+            if (!jwtUtils.verify(token, username)) {
+                throw new AuthenticationException("无效的token");
+            }
         } catch (Exception e) {
             throw new AuthenticationException("无效的token");
         }
@@ -110,7 +122,7 @@ public class MyShiroRealm extends AuthorizingRealm {
         SysUserLoginDTO user = shiroUserService.token(token);
 
         // 校验token是否超时
-        if (JwtUtils.expired(token)) {
+        if (jwtUtils.expired(token)) {
             throw new AuthenticationException("登陆失效，请重试登陆!");
         }
 

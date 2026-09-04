@@ -35,6 +35,57 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/exam-entry',
+    component: () => import('@/views/Exam/Candidate/Entry.vue'),
+    name: 'CandidateEntry',
+    meta: {
+      hidden: true,
+      title: '候选人考核入口',
+      noTagsView: true
+    }
+  },
+  {
+    path: '/candidate/exam',
+    component: () => import('@/views/Exam/Exam/Client/Enter.vue'),
+    name: 'CandidateExamEnter',
+    meta: {
+      hidden: true,
+      title: '在线考核',
+      noTagsView: true
+    }
+  },
+  {
+    path: '/candidate/result',
+    component: () => import('@/views/Exam/Candidate/Result.vue'),
+    name: 'CandidateExamResult',
+    meta: {
+      hidden: true,
+      title: '考核结果',
+      noTagsView: true
+    }
+  },
+  {
+    path: '/management/exam',
+    component: Layout,
+    name: 'ExamManagement',
+    meta: {
+      hidden: true,
+      noTagsView: true
+    },
+    children: [
+      {
+        path: 'paper-result',
+        component: () => import('@/views/Exam/Exam/Client/Result.vue'),
+        name: 'ExamManagementPaperResult',
+        meta: {
+          hidden: true,
+          title: '\u8bd5\u5377\u660e\u7ec6',
+          noTagsView: true
+        }
+      }
+    ]
+  },
+  {
     path: '/404',
     component: () => import('@/views/Error/404.vue'),
     name: 'NoFind',
@@ -64,7 +115,18 @@ const router = createRouter({
 
 export const resetRouter = (): void => {
   // Home和Dashboard后续放到后端路由
-  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Home']
+  const resetWhiteNameList = [
+    'Redirect',
+    'Login',
+    'CandidateEntry',
+    'CandidateExamEnter',
+    'CandidateExamResult',
+    'ExamManagement',
+    'ExamManagementPaperResult',
+    'NoFind',
+    'Root',
+    'Home'
+  ]
   router.getRoutes().forEach((route) => {
     console.log('++++++route', route)
 

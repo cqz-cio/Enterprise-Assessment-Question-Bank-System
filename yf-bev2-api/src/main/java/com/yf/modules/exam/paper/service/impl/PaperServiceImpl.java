@@ -18,6 +18,9 @@ import com.yf.modules.exam.exam.entity.Exam;
 import com.yf.modules.exam.exam.service.ExamRecordService;
 import com.yf.modules.exam.exam.service.ExamRuleService;
 import com.yf.modules.exam.exam.service.ExamService;
+import com.yf.modules.exam.assignment.entity.ExamAssignment;
+import com.yf.modules.exam.assignment.enums.AssignmentStatus;
+import com.yf.modules.exam.assignment.mapper.ExamAssignmentMapper;
 import com.yf.modules.exam.jobs.HandPaperJob;
 import com.yf.modules.exam.paper.dto.PaperDTO;
 import com.yf.modules.exam.paper.dto.response.PaperCheckRespDTO;
@@ -26,6 +29,7 @@ import com.yf.modules.exam.paper.dto.response.PaperRealTimeRespDTO;
 import com.yf.modules.exam.paper.entity.Paper;
 import com.yf.modules.exam.paper.mapper.PaperMapper;
 import com.yf.modules.exam.paper.service.PaperQuService;
+import com.yf.modules.exam.paper.service.PaperAccessService;
 import com.yf.modules.exam.paper.service.PaperService;
 import com.yf.modules.exam.repo.dto.request.RepoQuDetailDTO;
 import com.yf.modules.exam.repo.service.RepoQuService;
@@ -58,6 +62,8 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
     private final PaperQuService paperQuService;
     private final ExamRecordService examRecordService;
     private final JobService jobService;
+    private final PaperAccessService paperAccessService;
+    private final ExamAssignmentMapper examAssignmentMapper;
 
     @Override
     public IPage<PaperDTO> paging(PagingReqDTO<PaperDTO> reqDTO) {
@@ -88,8 +94,8 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
 
 
     @Override
-    public PaperDTO detail(String id) {
-        Paper entity = this.getById(id);
+    public PaperDTO detail(String id, String userId) {
+        Paper entity = paperAccessService.requireOwner(id, userId);
         PaperDTO dto = new PaperDTO();
         BeanMapper.copy(entity, dto);
         return dto;
@@ -230,6 +236,68 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
 
     @Transactional(rollbackFor = Exception.class)
     @Override
+    public String createPaperForAssignment(ExamAssignment assignment) {
+        Paper existing = this.getOne(new QueryWrapper<Paper>().lambda()
+                .eq(Paper::getAssignmentId, assignment.getId()), false);
+        if (existing != null) {
+            if (!existing.getUserId().equals(assignment.getUserId())) {
+                throw new ServiceException("考核试卷状态异常，请联系管理员！");
+            }
+            return existing.getId();
+        }
+
+        Exam exam = examService.getById(assignment.getExamId());
+        if (exam == null || !Integer.valueOf(1).equals(exam.getTemplateStatus())) {
+            throw new ServiceException("考核模板不存在或已停用！");
+        }
+
+        Paper paper = new Paper();
+        paper.setTitle(exam.getTitle());
+        paper.setExamId(exam.getId());
+        paper.setAssignmentId(assignment.getId());
+        paper.setUserId(assignment.getUserId());
+        paper.setTotalScore(exam.getTotalScore());
+        paper.setQualifyScore(exam.getQualifyScore());
+        paper.setUserScore(DecimalUtils.zero());
+        paper.setUserTime(0);
+        paper.setHandState(0);
+
+        Integer totalTime = exam.getTotalTime();
+        paper.setTotalTime(totalTime);
+        Date deadline = assignment.getExpireAt();
+        if (totalTime != null && totalTime > 0) {
+            Calendar calendar = Calendar.getInstance();
+            calendar.add(Calendar.MINUTE, totalTime);
+            if (calendar.getTime().before(deadline)) {
+                deadline = calendar.getTime();
+            }
+        }
+        paper.setLimitTime(deadline);
+        this.save(paper);
+
+        List<ExamRuleDTO> ruleList = examRuleService.listByExam(exam.getId());
+        if (CollectionUtils.isEmpty(ruleList)) {
+            throw new ServiceException("考试进入失败，没有组卷规则！");
+        }
+        int sort = 1;
+        for (ExamRuleDTO rule : ruleList) {
+            if (rule.getQuCount() == null || rule.getQuCount() == 0) {
+                continue;
+            }
+            List<RepoQuDetailDTO> quList = repoQuService.listForPaper(
+                    rule.getRepoId(), rule.getQuType(), rule.getQuCount());
+            paperQuService.saveToPaper(paper.getId(), rule.getQuScore(), quList, sort);
+            sort += quList.size();
+        }
+
+        String jobName = "force:hand:paper:" + paper.getId();
+        jobService.addCronJob(HandPaperJob.class, jobName, JobGroup.SYSTEM,
+                CronUtils.dateToCron(paper.getLimitTime()), paper.getId());
+        return paper.getId();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
     public void handPaper(String paperId) {
 
         Paper paper = this.getById(paperId);
@@ -265,12 +333,30 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
         // 汇总表
         examRecordService.joinRecord(paper.getExamId(), paper.getUserId(), paperId, userScore, passed);
 
+        if (StringUtils.isNotBlank(paper.getAssignmentId())) {
+            ExamAssignment assignment = examAssignmentMapper.selectByIdForUpdate(paper.getAssignmentId());
+            if (assignment != null && paperId.equals(assignment.getPaperId())) {
+                Date completedAt = new Date();
+                assignment.setStatus(AssignmentStatus.COMPLETED);
+                assignment.setSubmittedAt(completedAt);
+                assignment.setCompletedAt(completedAt);
+                examAssignmentMapper.updateById(assignment);
+            }
+        }
+
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void handPaper(String paperId, String userId) {
+        paperAccessService.requireOwner(paperId, userId);
+        this.handPaper(paperId);
     }
 
     @Override
-    public PaperRealTimeRespDTO realTimeState(String paperId) {
+    public PaperRealTimeRespDTO realTimeState(String paperId, String userId) {
 
-        Paper paper = this.getById(paperId);
+        Paper paper = paperAccessService.requireOwner(paperId, userId);
 
         PaperRealTimeRespDTO respDTO = new PaperRealTimeRespDTO();
 

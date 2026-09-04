@@ -39,4 +39,7 @@ public class SysUserQueryReqDTO implements Serializable {
     @Schema(description = "手机号码")
     private String mobile;
 
+    @Schema(description = "员工工号")
+    private String employeeNo;
+
 }

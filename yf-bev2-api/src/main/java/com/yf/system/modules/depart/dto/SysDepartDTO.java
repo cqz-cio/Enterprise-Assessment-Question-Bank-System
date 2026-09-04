@@ -42,6 +42,9 @@ public class SysDepartDTO implements Serializable {
     @Schema(description = "排序")
     private Integer sort;
 
+    @Schema(description = "1启用，0停用")
+    private Integer status;
+
     @Schema(description = "创建时间")
     private Date createTime;
 

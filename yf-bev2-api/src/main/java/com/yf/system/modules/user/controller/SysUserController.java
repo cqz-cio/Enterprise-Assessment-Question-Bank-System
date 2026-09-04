@@ -1,22 +1,21 @@
 package com.yf.system.modules.user.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.yf.ability.Constant;
 import com.yf.ability.shiro.dto.SysUserLoginDTO;
 import com.yf.base.api.annon.DataProtect;
 import com.yf.base.api.api.ApiRest;
 import com.yf.base.api.api.controller.BaseController;
 import com.yf.base.api.api.dto.*;
-import com.yf.base.api.exception.ServiceException;
 import com.yf.system.modules.user.dto.request.*;
 import com.yf.system.modules.user.dto.response.UserListRespDTO;
 import com.yf.system.modules.user.entity.SysUser;
-import com.yf.system.modules.user.enums.UserState;
 import com.yf.system.modules.user.service.SysUserRoleService;
 import com.yf.system.modules.user.service.SysUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.shiro.authz.annotation.Logical;
@@ -89,8 +88,8 @@ public class SysUserController extends BaseController {
      */
     @Operation(summary = "获取会话")
     @PostMapping("/info")
-    public ApiRest<?> info(@RequestBody BaseTokenReqDTO reqDTO) {
-        SysUserLoginDTO respDTO = baseService.token(reqDTO.getToken());
+    public ApiRest<?> info(HttpServletRequest request) {
+        SysUserLoginDTO respDTO = baseService.token(request.getHeader(Constant.TOKEN));
         return success(respDTO);
     }
 
@@ -102,9 +101,9 @@ public class SysUserController extends BaseController {
     @DataProtect(clazz = SysUser.class, update = true, currUsr = true)
     @Operation(summary = "修改用户资料")
     @PostMapping("/update")
-    public ApiRest<?> update(@RequestBody SysUserUpdateReqDTO reqDTO) {
-        baseService.update(reqDTO);
-        return success();
+    public ApiRest<SysUserLoginDTO> update(@RequestBody SysUserUpdateReqDTO reqDTO) {
+        SysUserLoginDTO respDTO = baseService.update(reqDTO);
+        return success(respDTO);
     }
 
 
@@ -179,15 +178,7 @@ public class SysUserController extends BaseController {
     @PostMapping("/state")
     public ApiRest<?> state(@RequestBody BaseStateReqDTO reqDTO) {
 
-        // 条件
-        QueryWrapper<SysUser> wrapper = new QueryWrapper<>();
-        wrapper.lambda()
-                .in(SysUser::getId, reqDTO.getIds())
-                .ne(SysUser::getUserName, "admin");
-
-        SysUser record = new SysUser();
-        record.setState(reqDTO.getState());
-        baseService.update(record, wrapper);
+        baseService.changeState(reqDTO);
         return super.success();
     }
 
@@ -198,14 +189,20 @@ public class SysUserController extends BaseController {
      */
     @Operation(summary = "用户注册", description = "通过账号密码注册")
     @PostMapping("/reg")
-    public ApiRest<SysUserLoginDTO> reg(@RequestBody UserRegReqDTO reqDTO) {
+    public ApiRest<SysUserLoginDTO> reg(@Valid @RequestBody UserRegReqDTO reqDTO) {
         SysUserLoginDTO respDTO = baseService.reg(reqDTO);
-
-        // 待审核的状态
-        if (UserState.AUDIT.equals(respDTO.getState())) {
-            throw new ServiceException("注册成功，管理员审核后方可登录！");
-        }
         return success(respDTO);
+    }
+
+    /**
+     * 审核员工注册申请
+     */
+    @RequiresPermissions("sys:user:registration:audit")
+    @Operation(summary = "审核员工注册", description = "管理员或 HR 通过/驳回待审核员工")
+    @PostMapping("/registration/audit")
+    public ApiRest<?> auditRegistration(@Valid @RequestBody UserRegistrationAuditReqDTO reqDTO) {
+        baseService.auditRegistration(reqDTO);
+        return success();
     }
 
 
@@ -219,6 +216,7 @@ public class SysUserController extends BaseController {
     @PostMapping("/batch-role")
     public ApiRest<?> batchRole(@RequestBody UserRoleReqDTO reqDTO) {
         sysUserRoleService.batchRole(reqDTO);
+        baseService.invalidateSessions(reqDTO.getUserIds());
         return success();
     }
 

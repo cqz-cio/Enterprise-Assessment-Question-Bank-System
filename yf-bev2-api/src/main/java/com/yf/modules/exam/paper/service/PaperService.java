@@ -8,6 +8,7 @@ import com.yf.modules.exam.paper.dto.response.PaperCheckRespDTO;
 import com.yf.modules.exam.paper.dto.response.PaperDetailRespDTO;
 import com.yf.modules.exam.paper.dto.response.PaperRealTimeRespDTO;
 import com.yf.modules.exam.paper.entity.Paper;
+import com.yf.modules.exam.assignment.entity.ExamAssignment;
 
 /**
  * <p>
@@ -33,7 +34,7 @@ public interface PaperService extends IService<Paper> {
      * @param id
      * @return
      */
-    PaperDTO detail(String id);
+    PaperDTO detail(String id, String userId);
 
     /**
      * 校验考试
@@ -52,12 +53,22 @@ public interface PaperService extends IService<Paper> {
     String createPaper(String examId, String userId);
 
     /**
+     * 按考核分配创建唯一试卷，不使用旧版考试次数规则。
+     */
+    String createPaperForAssignment(ExamAssignment assignment);
+
+    /**
      * 交卷
      *
      * @param paperId
      * @return
      */
     void handPaper(String paperId);
+
+    /**
+     * 当前登录考生主动交卷。
+     */
+    void handPaper(String paperId, String userId);
 
 
     /**
@@ -66,7 +77,7 @@ public interface PaperService extends IService<Paper> {
      * @param paperId
      * @return
      */
-    PaperRealTimeRespDTO realTimeState(String paperId);
+    PaperRealTimeRespDTO realTimeState(String paperId, String userId);
 
     /**
      * 完整试卷详情

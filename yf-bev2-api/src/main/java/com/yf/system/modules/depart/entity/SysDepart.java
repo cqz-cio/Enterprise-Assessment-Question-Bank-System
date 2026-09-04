@@ -68,6 +68,9 @@ public class SysDepart extends Model<SysDepart> {
      */
     private Integer sort;
 
+    /** 1启用，0停用 */
+    private Integer status;
+
     /**
      * 创建时间
      */

@@ -6,7 +6,7 @@
     class="dark:(border-1 border-[var(--el-border-color)] border-solid); w-[100%]"
     hide-required-asterisk
     label-position="left"
-    label-width="70px"
+    label-width="90px"
     size="large"
   >
     <el-form-item>
@@ -29,6 +29,29 @@
         clearable
         type="text"
       />
+    </el-form-item>
+
+    <el-form-item label="员工工号" prop="employeeNo">
+      <el-input v-model="form.employeeNo" clearable placeholder="请输入员工工号" />
+    </el-form-item>
+
+    <el-form-item label="所属部门" prop="deptCode">
+      <el-tree-select
+        v-model="form.deptCode"
+        :data="departments"
+        :props="{ label: 'deptName', value: 'deptCode' }"
+        check-strictly
+        class="!w-full"
+        placeholder="请选择部门"
+      />
+    </el-form-item>
+
+    <el-form-item label="手机号码" prop="mobile">
+      <el-input v-model="form.mobile" clearable placeholder="选填" />
+    </el-form-item>
+
+    <el-form-item label="邮箱" prop="email">
+      <el-input v-model="form.email" clearable placeholder="选填" />
     </el-form-item>
 
     <el-form-item :label="t('login.password')" prop="password">
@@ -67,19 +90,18 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, unref } from 'vue'
+import { onMounted, ref, unref } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useValidator } from '@/hooks/web/useValidator'
 import { UserLoginType } from '@/api/login/types'
-import { FormInstance } from 'element-plus'
+import { ElMessage, FormInstance } from 'element-plus'
 import InputPassword from '@/components/InputPassword/src/InputPassword.vue'
 import InputCaptcha from '@/components/InputCaptcha/src/InputCaptcha.vue'
-import { useRouter } from 'vue-router'
 import { useUserStoreWithOut } from '@/store/modules/user'
+import { treeSelectApi } from '@/api/sys/depart'
 
 const { required } = useValidator()
 
-const { replace } = useRouter()
 const emit = defineEmits(['to-login'])
 
 const userStore = useUserStoreWithOut()
@@ -88,7 +110,12 @@ const { t } = useI18n()
 const form = ref<UserLoginType>({
   userName: '',
   realName: '',
+  employeeNo: '',
+  deptCode: '',
+  mobile: '',
+  email: '',
   password: '',
+  checkPassword: '',
   captchaKey: '',
   captchaValue: ''
 })
@@ -108,11 +135,14 @@ const checkPass = (_rule: any, value: any, callback: any) => {
 const rules = {
   userName: [required()],
   realName: [required()],
+  employeeNo: [required()],
+  deptCode: [required()],
   password: [required()],
   checkPassword: [{ validator: checkPass, trigger: 'blur' }],
   captchaValue: [required()]
 }
 const loading = ref(false)
+const departments = ref<any[]>([])
 
 // 登录
 const register = async (formEl: FormInstance | undefined) => {
@@ -125,7 +155,8 @@ const register = async (formEl: FormInstance | undefined) => {
       userStore
         .register(formData)
         .then(() => {
-          replace('/')
+          ElMessage.success('注册申请已提交，请等待管理员或 HR 审核')
+          emit('to-login')
           loading.value = false
         })
         .catch(() => {
@@ -139,12 +170,17 @@ const register = async (formEl: FormInstance | undefined) => {
 const toLogin = () => {
   emit('to-login')
 }
+
+onMounted(async () => {
+  const res = await treeSelectApi()
+  departments.value = res.data || []
+})
 </script>
 
 <style lang="less" scoped>
 :deep(.el-form-item__label) {
   display: inline-block;
-  width: 70px;
+  width: 90px;
   margin-right: 10px;
   text-align-last: justify;
 }

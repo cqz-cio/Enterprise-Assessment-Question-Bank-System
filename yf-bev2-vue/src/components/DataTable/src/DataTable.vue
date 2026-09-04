@@ -45,7 +45,8 @@
           v-hasPermi="ip.permission"
           class="filter-item"
           icon="Upload"
-          >导入
+          @click="onImport"
+          >{{ ip.label || '导入' }}
         </el-button>
         <el-button
           v-if="op && op.enable"
@@ -55,7 +56,11 @@
           >导出
         </el-button>
 
-        <el-dropdown v-if="selectedIds.length > 0 && batch" class="!ml-10px">
+        <el-dropdown
+          v-if="selectedIds.length > 0 && batch"
+          v-hasPermi="batchPermissions"
+          class="!ml-10px"
+        >
           <el-button plain type="primary">
             批量操作
             <el-icon class="el-icon--right">
@@ -64,7 +69,11 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item v-for="(item, index) in batch" :key="index" @click="onBatch(item)"
+              <el-dropdown-item
+                v-for="(item, index) in batch"
+                :key="index"
+                v-hasPermi="item.permission"
+                @click="onBatch(item)"
                 >{{ item.label }}
               </el-dropdown-item>
             </el-dropdown-menu>
@@ -104,7 +113,7 @@
 
 <script lang="ts" setup>
 import request from '@/config/axios'
-import { nextTick, onMounted, PropType, ref, toRefs, unref, watch } from 'vue'
+import { computed, nextTick, onMounted, PropType, ref, toRefs, unref, watch } from 'vue'
 import { BatchType, OptionsType, TableQueryType } from './types'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -133,11 +142,16 @@ const props = defineProps({
 })
 
 // 事件定义
-const emit = defineEmits(['onAdd', 'onEdit', 'onDelete', 'onBatch'])
+const emit = defineEmits(['onAdd', 'onEdit', 'onDelete', 'onBatch', 'onImport'])
 
 // 解构参数便于处理
 const { listUrl, delUrl, rowKey, add, edit, del, ip, op, batch } = toRefs(props.options)
 const { query } = toRefs(props)
+const batchPermissions = computed(() =>
+  (props.options.batch || []).flatMap((item) =>
+    item.permission && item.permission.length > 0 ? item.permission : ['']
+  )
+)
 
 // 搜索数据
 const search = () => {
@@ -182,6 +196,10 @@ const onAdd = () => {
 const onEdit = () => {
   console.log('修改操作：' + JSON.stringify(selectedRow.value))
   emit('onEdit', unref(selectedRow.value[0]))
+}
+
+const onImport = () => {
+  emit('onImport')
 }
 
 // 删除操作

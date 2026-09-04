@@ -5,4 +5,8 @@ export type UserLoginType = {
   userName?: string
   checkPassword?: string
   realName?: string
+  employeeNo?: string
+  deptCode?: string
+  mobile?: string
+  email?: string
 }

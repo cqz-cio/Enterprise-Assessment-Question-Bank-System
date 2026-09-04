@@ -8,6 +8,12 @@
             <el-input v-model="form.title" autocomplete="off" />
           </el-form-item>
         </el-col>
+        <el-col :span="12"><el-form-item label="部门" prop="departId"><DepartmentSelect v-model="form.departId" @update:model-value="onDepartmentChange" /></el-form-item></el-col>
+        <el-col :span="12"><el-form-item label="岗位" prop="positionId"><el-select v-model="form.positionId" class="!w-full" placeholder="请先选择部门"><el-option v-for="p in positions" :key="p.id" :label="p.name" :value="p.id" /></el-select></el-form-item></el-col>
+        <el-col :span="12"><el-form-item label="考核场景" prop="sceneType"><el-select v-model="form.sceneType" class="!w-full"><el-option v-for="s in scenes" :key="s.value" :label="s.label" :value="s.value" /></el-select></el-form-item></el-col>
+        <el-col v-if="form.sceneType === 'PROMOTION'" :span="12"><el-form-item label="目标职级"><el-select v-model="form.targetGradeId" class="!w-full" clearable placeholder="可暂不设置"><el-option v-for="g in currentGrades" :key="g.id" :label="g.name" :value="g.id" /></el-select></el-form-item></el-col>
+        <el-col :span="12"><el-form-item label="模板状态"><el-radio-group v-model="form.templateStatus"><el-radio :value="1">启用</el-radio><el-radio :value="0">停用</el-radio></el-radio-group></el-form-item></el-col>
+        <el-col :span="12"><el-form-item label="选项随机"><el-switch v-model="form.optionShuffle" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
         <el-col :span="12">
           <el-form-item label="考试时间" prop="endTime">
             <el-date-picker
@@ -70,7 +76,7 @@
           <h3>组卷信息</h3>
 
           <el-form-item label="抽题题库" prop="repoId">
-            <repo-select v-model="form.repoId" />
+            <repo-select v-model="form.repoId" :depart-id="form.departId" :position-id="form.positionId" :scene-type="form.sceneType" :target-grade-id="form.targetGradeId" />
           </el-form-item>
 
           <div class="!text-12px !text-[#2d8cf0] !pb-10px"
@@ -118,15 +124,18 @@ import RepoSelect from '@/views/Exam/Repo/components/RepoSelect.vue'
 import { statApi } from '@/api/modules/exam/repo'
 import { detailApi, saveApi } from '@/api/modules/exam/exam'
 import { useRoute, useRouter } from 'vue-router'
+import { listByDepartmentApi } from '@/api/modules/exam/position'
+import DepartmentSelect from '@/views/Exam/components/DepartmentSelect.vue'
 
 const { replace } = useRouter()
 
 const loading = ref(false)
+const loadingDetail = ref(false)
 
 // 获取参数
 const route = useRoute()
 
-const examId = route.query.id || ''
+const examId = String(route.query.id || '')
 
 const form = ref<ExamType>({
   repoId: '',
@@ -135,8 +144,17 @@ const form = ref<ExamType>({
   lateMax: 0,
   totalTime: 5,
   startTime: '',
-  endTime: ''
+  endTime: '',
+  departId: '',
+  positionId: '',
+  sceneType: 'INTERVIEW',
+  targetGradeId: '',
+  templateStatus: 1,
+  optionShuffle: 1
 })
+const positions=ref<any[]>([])
+const scenes=[{value:'INTERVIEW',label:'面试'},{value:'REGULARIZATION',label:'转正'},{value:'PROMOTION',label:'晋升'}]
+const currentGrades = computed(() => positions.value.find((item) => item.id === form.value.positionId)?.grades?.filter((g:any) => g.status === 1) || [])
 const formRef = ref<FormInstance>()
 const rules = reactive<FormRules>({
   title: [
@@ -159,7 +177,7 @@ const rules = reactive<FormRules>({
       message: '题库必须选择！',
       trigger: 'blur'
     }
-  ],
+  ], departId: [{required:true,message:'部门必须选择',trigger:'change'}], positionId: [{required:true,message:'岗位必须选择',trigger:'change'}], sceneType: [{required:true,message:'考核场景必须选择',trigger:'change'}],
   totalTime: [
     {
       type: 'number',
@@ -251,14 +269,17 @@ const handleSave = async (formEl: FormInstance | undefined) => {
 
 // 加载详情
 const loadData = (examId: string) => {
-  detailApi({ id: examId }).then(({ data }) => {
+  detailApi({ id: examId }).then(async ({ data }) => {
+    loadingDetail.value = true
     form.value = data
+    positions.value = form.value.departId ? (await listByDepartmentApi(form.value.departId)).data || [] : []
+    loadingDetail.value = false
   })
 }
 
 // 加载详情
-const mergeRule = (statList, null2: boolean) => {
-  const mixList = []
+const mergeRule = (statList: any[], null2: boolean) => {
+  const mixList: any[] = []
 
   for (let i = 0; i < statList.length; i++) {
     const item = statList[i]
@@ -277,8 +298,8 @@ const mergeRule = (statList, null2: boolean) => {
         for (let j = 0; j < ruleList.length; j++) {
           const rule = ruleList[j]
           if (item.quType === rule.quType) {
-            mix.quCount = rule.quCount
-            mix.quScore = rule.quScore
+            mix.quCount = rule.quCount ?? 0
+            mix.quScore = rule.quScore ?? 0
           }
         }
       }
@@ -299,6 +320,19 @@ const dateRange = computed({
 })
 
 // 加载第一页数据
+async function onDepartmentChange(value: string | string[]) {
+  form.value.positionId = ''
+  form.value.targetGradeId = ''
+  form.value.repoId = ''
+  positions.value = typeof value === 'string' && value ? (await listByDepartmentApi(value)).data || [] : []
+}
+watch(() => [form.value.positionId, form.value.sceneType], () => {
+  if (loadingDetail.value) return
+  form.value.repoId = ''
+  if (form.value.sceneType !== 'PROMOTION') form.value.targetGradeId = ''
+})
+watch(() => form.value.targetGradeId, () => { if (!loadingDetail.value) form.value.repoId = '' })
+
 onMounted(() => {
   // 查询详情
   if (examId) {

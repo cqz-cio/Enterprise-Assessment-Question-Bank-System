@@ -41,6 +41,20 @@ public class Repo extends Model<Repo> {
     @TableField("cat_id")
     private String catId;
 
+    @TableField("depart_id")
+    private String departId;
+
+    @TableField("position_id")
+    private String positionId;
+
+    @TableField("scene_type")
+    private String sceneType;
+
+    @TableField("target_grade_id")
+    private String targetGradeId;
+
+    private Integer status;
+
     /**
      * 题库备注
      */

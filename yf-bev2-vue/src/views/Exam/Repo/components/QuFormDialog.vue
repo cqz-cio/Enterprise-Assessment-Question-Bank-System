@@ -24,6 +24,32 @@
             <RepoSelect v-model="form.repoId" />
           </el-form-item>
         </el-col>
+        <el-col :span="12">
+          <el-form-item label="启用状态" prop="status">
+            <el-switch
+              v-model="form.status"
+              :active-value="1"
+              :inactive-value="0"
+              active-text="启用"
+              inactive-text="停用"
+            />
+          </el-form-item>
+        </el-col>
+
+        <el-col :span="12">
+          <el-form-item label="题目编号" prop="externalCode">
+            <el-input
+              v-model="form.externalCode"
+              maxlength="64"
+              placeholder="选填，用于题库维护和导入追溯"
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="题目标签" prop="tags">
+            <el-input v-model="form.tags" maxlength="500" placeholder="多个标签使用英文逗号分隔" />
+          </el-form-item>
+        </el-col>
 
         <el-col :span="24">
           <el-form-item label="试题题干" prop="content">
@@ -31,14 +57,27 @@
           </el-form-item>
         </el-col>
 
-        <el-col :span="24">
+        <el-col v-if="form.quType !== 'short'" :span="24">
           <el-form-item label="试题解析" prop="analysis">
             <Editor ref="analysisRef" v-model="form.analysis" height="100px" />
           </el-form-item>
         </el-col>
+
+        <template v-if="form.quType === 'short'">
+          <el-col :span="24">
+            <el-form-item label="参考答案" prop="referenceAnswer">
+              <Editor v-model="form.referenceAnswer" height="120px" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="评分要点" prop="gradingCriteria">
+              <Editor v-model="form.gradingCriteria" height="120px" />
+            </el-form-item>
+          </el-col>
+        </template>
       </el-row>
 
-      <el-col v-if="form.quType" :span="24">
+      <el-col v-if="form.quType && form.quType !== 'short'" :span="24">
         <el-divider />
 
         <div class="!pb-10px">
@@ -113,7 +152,8 @@ const emit = defineEmits(['update:visible', 'saved'])
 const loading = ref(false)
 
 const form = ref<QuDataType>({
-  answerList: []
+  answerList: [],
+  status: 1
 })
 const formRef = ref<FormInstance>()
 const rules = reactive<FormRules>({
@@ -137,6 +177,13 @@ const rules = reactive<FormRules>({
       message: '题干必须填写！',
       trigger: 'blur'
     }
+  ],
+  difficultyLevel: [
+    {
+      required: true,
+      message: '难度等级不能为空',
+      trigger: 'change'
+    }
   ]
 })
 
@@ -155,7 +202,7 @@ watch(
     if (val) {
       loadData(val)
     } else {
-      form.value = {}
+      form.value = { answerList: [], status: 1, repoId: props.repoId }
     }
   }
 )
@@ -186,6 +233,10 @@ const handleSave = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl?.validate(async (isValid) => {
     if (isValid && checkItems()) {
+      if (form.value.quType === 'short') {
+        form.value.answerList = []
+        form.value.analysis = ''
+      }
       loading.value = true
       saveApi(form.value)
         .then(() => {
@@ -202,6 +253,7 @@ const handleSave = async (formEl: FormInstance | undefined) => {
           // 重置表单，保留题库
           formEl?.resetFields()
           form.value.repoId = props.repoId
+          form.value.status = 1
         })
         .catch(() => {
           loading.value = false
@@ -214,6 +266,7 @@ const handleSave = async (formEl: FormInstance | undefined) => {
 const loadData = (repoId: string) => {
   detailApi({ id: repoId }).then(({ data }) => {
     form.value = data
+    form.value.status = data.status ?? 1
   })
 }
 
@@ -269,6 +322,9 @@ const checkChange = (val: boolean, index: number) => {
 }
 
 const checkItems = () => {
+  if (form.value.quType === 'short') {
+    return true
+  }
   let total = 0
   let checked = 0
 

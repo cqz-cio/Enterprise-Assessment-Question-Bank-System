@@ -12,6 +12,12 @@ export type ExamType = {
   handMin?: number
   ruleList?: ExamRuleType[]
   repoId?: string
+  departId?: string
+  positionId?: string
+  sceneType?: string
+  targetGradeId?: string
+  templateStatus?: number
+  optionShuffle?: number
 }
 
 export type ExamRuleType = {
@@ -32,4 +38,5 @@ export type QuCardItemType = {
   quId?: string
   checked?: boolean
   mark?: boolean
+  answered?: boolean
 }

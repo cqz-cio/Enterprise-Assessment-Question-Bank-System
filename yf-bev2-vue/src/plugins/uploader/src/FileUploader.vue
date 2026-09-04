@@ -52,7 +52,8 @@ const fileList = ref<UploadUserFile[]>([])
 const dialogImageUrl = ref('')
 const dialogVisible = ref(false)
 const disabled = ref(false)
-const action = import.meta.env.VITE_API_HOST + '/api/common/file/upload'
+const apiHost = (import.meta.env.VITE_API_HOST || '').replace(/\/$/, '')
+const action = apiHost + '/api/common/file/upload'
 
 const userInfo = useUserStoreWithOut().getUserInfo
 const headers = { token: userInfo.token }
@@ -71,7 +72,7 @@ const props = defineProps({
 watch(
   () => props.modelValue,
   (newVal) => {
-    fileList.value = [{ url: newVal, name: newVal }]
+    fileList.value = newVal ? [{ url: newVal, name: newVal }] : []
   }
 )
 
@@ -87,12 +88,16 @@ const handleExceed = (files: File[]) => {
 const handleRemove = (file: UploadFile) => {
   console.log(file)
   fileList.value = []
+  emit('update:modelValue', '')
 }
 
 // 直接返回服务器URL
 const handleSuccess = (response: any) => {
-  console.log('上传成功：', response.data.url)
-  emit('update:modelValue', response.data.url)
+  const path = response?.data?.url
+  if (!path) return
+  const url = path.startsWith('/') ? `${apiHost}${path}` : path
+  console.log('上传成功：', url)
+  emit('update:modelValue', url)
 }
 
 const handlePictureCardPreview = (file: UploadFile) => {

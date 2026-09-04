@@ -113,6 +113,6 @@ import { useRouter } from 'vue-router'
 const { push } = useRouter()
 
 const toDetail = (id) => {
-  push({ name: 'ExamClientResult', query: { id, mode: 'full' } })
+  push({ name: 'ExamManagementPaperResult', query: { id, mode: 'full' } })
 }
 </script>

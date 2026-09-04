@@ -14,6 +14,10 @@
         <result column="id_card" property="idCard"/>
         <result column="mobile" property="mobile"/>
         <result column="email" property="email"/>
+        <result column="employee_no" property="employeeNo"/>
+        <result column="audit_by" property="auditBy"/>
+        <result column="audit_time" property="auditTime"/>
+        <result column="audit_remark" property="auditRemark"/>
         <result column="dept_code" property="deptCode"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
@@ -33,6 +37,10 @@
         <result column="id_card" property="idCard"/>
         <result column="mobile" property="mobile"/>
         <result column="email" property="email"/>
+        <result column="employee_no" property="employeeNo"/>
+        <result column="audit_by" property="auditBy"/>
+        <result column="audit_time" property="auditTime"/>
+        <result column="audit_remark" property="auditRemark"/>
         <result column="dept_code" property="deptCode"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
@@ -100,6 +108,9 @@
                 </if>
                 <if test="query.mobile!=null and query.mobile!=''">
                     AND uc.mobile LIKE CONCAT('%',#{query.mobile},'%')
+                </if>
+                <if test="query.employeeNo!=null and query.employeeNo!=''">
+                    AND uc.employee_no LIKE CONCAT('%',#{query.employeeNo},'%')
                 </if>
             </if>
         </where>

@@ -31,5 +31,20 @@ public class ExamListReqDTO implements Serializable {
     @Schema(description = "时间查找R")
     private Date startTimeR;
 
+    @Schema(description = "部门ID")
+    private String departId;
+
+    @Schema(description = "岗位ID")
+    private String positionId;
+
+    @Schema(description = "考核场景")
+    private String sceneType;
+
+    @Schema(description = "晋升目标职级ID")
+    private String targetGradeId;
+
+    @Schema(description = "模板状态")
+    private Integer templateStatus;
+
 
 }

@@ -37,7 +37,7 @@ public interface PaperQuService extends IService<PaperQu> {
      * @param paperId
      * @return
      */
-    List<PaperQuCardRespDTO> listQuCard(String paperId);
+    List<PaperQuCardRespDTO> listQuCard(String paperId, String userId);
 
     /**
      * 查找详情用于答题
@@ -45,7 +45,7 @@ public interface PaperQuService extends IService<PaperQu> {
      * @param quId
      * @return
      */
-    PaperQuDetailDTO detailForAnswer(String paperId, String quId);
+    PaperQuDetailDTO detailForAnswer(String paperId, String quId, String userId);
 
     /**
      * 考试过程填充答案
@@ -53,7 +53,7 @@ public interface PaperQuService extends IService<PaperQu> {
      * @param reqDTO
      * @return
      */
-    PaperQuFillRespDTO fillAnswer(PaperQuFillReqDTO reqDTO);
+    PaperQuFillRespDTO fillAnswer(PaperQuFillReqDTO reqDTO, String userId);
 
     /**
      * 进行分数统计

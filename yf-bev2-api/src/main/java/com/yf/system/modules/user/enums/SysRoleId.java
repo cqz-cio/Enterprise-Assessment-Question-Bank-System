@@ -19,5 +19,12 @@ public interface SysRoleId {
      */
     String USER = "user";
 
+    /**
+     * 企业人才考核业务角色
+     */
+    String HR = "HR";
+    String EMPLOYEE = "EMPLOYEE";
+    String CANDIDATE = "CANDIDATE";
+
 
 }

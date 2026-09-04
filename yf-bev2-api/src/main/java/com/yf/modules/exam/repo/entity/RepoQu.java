@@ -43,6 +43,12 @@ public class RepoQu extends Model<RepoQu> {
     private String chapterId;
 
     /**
+     * 外部题目编号
+     */
+    @TableField("external_code")
+    private String externalCode;
+
+    /**
      * 题目类型
      */
     @TableField("qu_type")
@@ -63,6 +69,28 @@ public class RepoQu extends Model<RepoQu> {
      * 整题解析
      */
     private String analysis;
+
+    /**
+     * 启用状态
+     */
+    private Integer status;
+
+    /**
+     * 简答题参考答案
+     */
+    @TableField("reference_answer")
+    private String referenceAnswer;
+
+    /**
+     * 简答题评分要点
+     */
+    @TableField("grading_criteria")
+    private String gradingCriteria;
+
+    /**
+     * 题目标签
+     */
+    private String tags;
 
     /**
      * 创建时间

@@ -15,7 +15,7 @@ public interface CacheKey {
     /**
      * 菜单路由
      */
-    String MENU = "sys:menu";
+    String MENU = "sys:menu:v2";
 
     /**
      * 数据字典

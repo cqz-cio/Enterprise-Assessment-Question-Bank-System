@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
 
 /**
  * <p>
@@ -45,7 +46,7 @@ public class ExamController extends BaseController {
     @Operation(summary = "添加或修改")
     @RequiresPermissions(value = {"exam:exam:add", "exam:exam:edit"}, logical = Logical.OR)
     @PostMapping("/save")
-    public ApiRest<?> save(@RequestBody ExamDetailDTO reqDTO) {
+    public ApiRest<?> save(@Valid @RequestBody ExamDetailDTO reqDTO) {
         examService.save(reqDTO);
         return super.success();
     }
@@ -104,6 +105,7 @@ public class ExamController extends BaseController {
      * @return
      */
     @Operation(summary = "详情用于考试")
+    @RequiresPermissions("exam:client:detail")
     @PostMapping("/detail-for-exam")
     public ApiRest<ExamDetailDTO> detailForExam(@RequestBody BaseIdReqDTO reqDTO) {
         ExamDetailDTO dto = examService.detail(reqDTO.getId());
@@ -117,6 +119,7 @@ public class ExamController extends BaseController {
      * @return
      */
     @Operation(summary = "分页查找")
+    @RequiresPermissions("exam:client:list")
     @PostMapping("/client-paging")
     public ApiRest<IPage<ExamDTO>> clientPaging(@RequestBody PagingReqDTO<ExamListReqDTO> reqDTO) {
 

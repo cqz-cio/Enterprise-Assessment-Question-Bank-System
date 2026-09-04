@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -44,6 +45,18 @@ public class SysUserLoginDTO implements Serializable {
 
     @Schema(description = "手机")
     private String mobile;
+
+    @Schema(description = "员工工号")
+    private String employeeNo;
+
+    @Schema(description = "最近审核人")
+    private String auditBy;
+
+    @Schema(description = "最近审核时间")
+    private Date auditTime;
+
+    @Schema(description = "审核意见或驳回原因")
+    private String auditRemark;
 
     @Schema(description = "数据权限")
     private Integer dataScope;

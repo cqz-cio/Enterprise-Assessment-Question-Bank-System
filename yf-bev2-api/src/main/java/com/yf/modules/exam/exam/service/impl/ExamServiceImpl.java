@@ -13,7 +13,13 @@ import com.yf.modules.exam.exam.entity.Exam;
 import com.yf.modules.exam.exam.mapper.ExamMapper;
 import com.yf.modules.exam.exam.service.ExamRuleService;
 import com.yf.modules.exam.exam.service.ExamService;
+import com.yf.modules.exam.common.AssessmentScene;
+import com.yf.modules.exam.position.service.PositionService;
+import com.yf.modules.exam.repo.entity.Repo;
+import com.yf.modules.exam.repo.service.RepoService;
+import com.yf.base.api.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +38,8 @@ import java.util.List;
 public class ExamServiceImpl extends ServiceImpl<ExamMapper, Exam> implements ExamService {
 
     private final ExamRuleService examRuleService;
+    private final PositionService positionService;
+    private final RepoService repoService;
 
     @Override
     public IPage<ExamDTO> paging(PagingReqDTO<ExamListReqDTO> reqDTO) {
@@ -42,6 +50,46 @@ public class ExamServiceImpl extends ServiceImpl<ExamMapper, Exam> implements Ex
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void save(ExamDetailDTO reqDTO) {
+        if (StringUtils.isBlank(reqDTO.getDepartId()) || StringUtils.isBlank(reqDTO.getPositionId())) {
+            throw new ServiceException("考核模板必须选择部门和岗位！");
+        }
+        if (!AssessmentScene.isValid(reqDTO.getSceneType())) {
+            throw new ServiceException("考核场景无效！");
+        }
+        positionService.requireDepartmentPosition(reqDTO.getDepartId(), reqDTO.getPositionId());
+        if (AssessmentScene.PROMOTION.equals(reqDTO.getSceneType())) {
+            positionService.requireGradeForPosition(reqDTO.getTargetGradeId(), reqDTO.getPositionId());
+        } else {
+            reqDTO.setTargetGradeId(null);
+        }
+        Repo repo = repoService.getById(reqDTO.getRepoId());
+        if (repo == null || !Integer.valueOf(1).equals(repo.getStatus())
+                || !reqDTO.getDepartId().equals(repo.getDepartId())
+                || !reqDTO.getPositionId().equals(repo.getPositionId())
+                || !reqDTO.getSceneType().equals(repo.getSceneType())
+                || !java.util.Objects.equals(reqDTO.getTargetGradeId(), repo.getTargetGradeId())) {
+            throw new ServiceException("题库必须启用并与部门、岗位、场景及目标职级一致！");
+        }
+        if (reqDTO.getTemplateStatus() == null) {
+            reqDTO.setTemplateStatus(1);
+        }
+        if (reqDTO.getOptionShuffle() == null) {
+            reqDTO.setOptionShuffle(1);
+        }
+        if (Integer.valueOf(1).equals(reqDTO.getTemplateStatus())) {
+            QueryWrapper<Exam> enabled = new QueryWrapper<>();
+            enabled.lambda()
+                    .eq(Exam::getDepartId, reqDTO.getDepartId())
+                    .eq(Exam::getPositionId, reqDTO.getPositionId())
+                    .eq(Exam::getSceneType, reqDTO.getSceneType())
+                    .eq(StringUtils.isNotBlank(reqDTO.getTargetGradeId()), Exam::getTargetGradeId, reqDTO.getTargetGradeId())
+                    .isNull(StringUtils.isBlank(reqDTO.getTargetGradeId()), Exam::getTargetGradeId)
+                    .eq(Exam::getTemplateStatus, 1)
+                    .ne(StringUtils.isNotBlank(reqDTO.getId()), Exam::getId, reqDTO.getId());
+            if (count(enabled) > 0) {
+                throw new ServiceException("同一部门、岗位、场景和目标职级只能启用一个考核模板！");
+            }
+        }
         // 保存基本信息
         Exam entity = new Exam();
         BeanMapper.copy(reqDTO, entity);

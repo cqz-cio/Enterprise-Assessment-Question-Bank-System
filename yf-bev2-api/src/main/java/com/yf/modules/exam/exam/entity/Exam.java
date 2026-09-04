@@ -110,6 +110,24 @@ public class Exam extends Model<Exam> {
     @TableField("repo_id")
     private String repoId;
 
+    @TableField("depart_id")
+    private String departId;
+
+    @TableField("position_id")
+    private String positionId;
+
+    @TableField("scene_type")
+    private String sceneType;
+
+    @TableField("target_grade_id")
+    private String targetGradeId;
+
+    @TableField("template_status")
+    private Integer templateStatus;
+
+    @TableField("option_shuffle")
+    private Integer optionShuffle;
+
     /**
      * 创建时间
      */

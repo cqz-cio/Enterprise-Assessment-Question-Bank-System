@@ -21,6 +21,10 @@ const props = defineProps({
   paperId: {
     type: String,
     default: null
+  },
+  assignmentId: {
+    type: String,
+    default: ''
   }
 })
 
@@ -45,7 +49,11 @@ const executeTask = () => {
     if (data.handed) {
       ElMessage.error('当前试卷已被提交、无法继续答题！')
       setTimeout(() => {
-        push({ name: 'ExamClientResult', query: { id: props.paperId } })
+        if (props.assignmentId) {
+          push({ name: 'CandidateExamResult', query: { assignmentId: props.assignmentId } })
+        } else {
+          push({ name: 'ExamClientResult', query: { id: props.paperId } })
+        }
       }, 2000)
       return
     }

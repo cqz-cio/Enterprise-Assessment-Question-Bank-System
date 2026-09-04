@@ -68,6 +68,7 @@ public class ShiroConfig {
         map.put("/api/sys/user/reset-pass", "anon");
         map.put("/api/sys/user/sync-login", "anon");
         map.put("/api/sys/depart/tree-select", "anon");
+        map.put("/api/exam/assignment/candidate/verify", "anon");
 
         // 验证码相关
         map.put("/api/common/captcha/**", "anon");

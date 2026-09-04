@@ -20,7 +20,12 @@ const { getPrefixCls } = useDesign()
 const prefixCls = getPrefixCls('user-info')
 
 const { t } = useI18n()
-const { replace } = useRouter()
+const router = useRouter()
+const { push, replace } = router
+
+const openAccountSettings = () => {
+  push({ name: 'UserInfoUpdate' })
+}
 
 const loginOut = () => {
   ElMessageBox.confirm(t('common.loginOutMessage'), t('common.reminder'), {
@@ -48,6 +53,9 @@ const lockScreen = () => {
 }
 
 const userInfo = computed(() => userStore.getUserInfo)
+const showAccountSettings = computed(
+  () => !userInfo.value.roles?.includes('CANDIDATE') && router.hasRoute('UserInfoUpdate')
+)
 </script>
 
 <template>
@@ -60,7 +68,10 @@ const userInfo = computed(() => userStore.getUserInfo)
     </div>
     <template #dropdown>
       <ElDropdownMenu>
-        <ElDropdownItem divided>
+        <ElDropdownItem v-if="showAccountSettings">
+          <div @click="openAccountSettings">{{ t('common.accountSettings') }}</div>
+        </ElDropdownItem>
+        <ElDropdownItem :divided="showAccountSettings">
           <div @click="lockScreen">{{ t('lock.lockScreen') }}</div>
         </ElDropdownItem>
         <ElDropdownItem>

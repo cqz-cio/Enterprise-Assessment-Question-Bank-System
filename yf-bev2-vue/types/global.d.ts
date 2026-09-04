@@ -71,8 +71,15 @@ declare global {
     avatar?: string
     face?: string
     userName?: string
+    mobile?: string
+    email?: string
+    employeeNo?: string
+    deptCode?: string
+    deptCode_dictText?: string
     token?: string
     permissions?: string[]
+    roles?: string[]
+    state?: number
   }
 
   declare interface SitePropTypes {

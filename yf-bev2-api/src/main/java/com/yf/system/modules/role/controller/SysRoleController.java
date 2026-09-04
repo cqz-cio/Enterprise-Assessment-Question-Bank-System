@@ -49,7 +49,7 @@ public class SysRoleController extends BaseController {
      * @param reqDTO
      * @return
      */
-    @RequiresPermissions(value = {"sys:role:add", "sys:role:update"}, logical = Logical.OR)
+    @RequiresPermissions(value = {"sys:role:add", "sys:role:edit"}, logical = Logical.OR)
     @DataProtect(clazz = SysRole.class, update = true)
     @Operation(summary = "添加或修改")
     @PostMapping("/save")
@@ -81,7 +81,7 @@ public class SysRoleController extends BaseController {
      * @param reqDTO
      * @return
      */
-    @RequiresPermissions(value = {"sys:role:add", "sys:role:update"}, logical = Logical.OR)
+    @RequiresPermissions(value = {"sys:role:add", "sys:role:edit"}, logical = Logical.OR)
     @Operation(summary = "查找详情")
     @PostMapping("/detail")
     public ApiRest<SysRoleDTO> detail(@RequestBody BaseIdReqDTO reqDTO) {

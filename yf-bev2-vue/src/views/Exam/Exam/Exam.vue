@@ -9,6 +9,8 @@
     >
       <template #search>
         <el-input v-model="query.params.title" class="filter-item" placeholder="搜索考试" />
+        <DepartmentSelect v-model="query.params.departId" class="filter-item" />
+        <el-select v-model="query.params.sceneType" class="filter-item" clearable placeholder="考核场景"><el-option label="面试" value="INTERVIEW" /><el-option label="转正" value="REGULARIZATION" /><el-option label="晋升" value="PROMOTION" /></el-select>
         <el-date-picker
           v-model="dateRange"
           class="filter-item"
@@ -23,6 +25,11 @@
       <template #columns>
         <el-table-column type="selection" width="50px" />
         <el-table-column label="考试名称" prop="title" />
+        <el-table-column align="center" label="部门" prop="departId_dictText" />
+        <el-table-column align="center" label="岗位" prop="positionId_dictText" />
+        <el-table-column align="center" label="场景" prop="sceneType" width="90"><template #default="{row}">{{({INTERVIEW:'面试',REGULARIZATION:'转正',PROMOTION:'晋升'}[row.sceneType]||row.sceneType)}}</template></el-table-column>
+        <el-table-column align="center" label="目标职级" prop="targetGradeId_dictText"><template #default="{row}">{{row.targetGradeId_dictText||'-'}}</template></el-table-column>
+        <el-table-column align="center" label="模板状态" width="90"><template #default="{row}"><el-tag :type="row.templateStatus===1?'success':'info'">{{row.templateStatus===1?'启用':'停用'}}</el-tag></template></el-table-column>
         <el-table-column align="center" label="开始时间" prop="startTime" show-overflow-tooltip />
         <el-table-column align="center" label="结束时间" prop="endTime" show-overflow-tooltip />
         <el-table-column align="center" label="创建人" prop="createBy_dictText" />
@@ -43,6 +50,7 @@ import { DataTable } from '@/components/DataTable'
 import { computed, onActivated, ref } from 'vue'
 import type { OptionsType, TableQueryType } from '@/components/DataTable/src/types'
 import { useRouter } from 'vue-router'
+import DepartmentSelect from '@/views/Exam/components/DepartmentSelect.vue'
 
 const { push } = useRouter()
 
@@ -53,7 +61,9 @@ let query = ref<TableQueryType>({
   params: {
     title: '',
     startTime: null,
-    endTime: null
+    endTime: null,
+    departId: '',
+    sceneType: ''
   }
 })
 

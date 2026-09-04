@@ -1,9 +1,24 @@
 server:
   port: 8080
 
+security:
+  jwt:
+    # 必须通过环境变量或外部配置注入，不提供源码内默认密钥。
+    secret: ${JWT_SECRET:}
+    expire-hours: ${JWT_EXPIRE_HOURS:24}
+  assignment-code:
+    # 建议与 JWT_SECRET 使用不同随机值；未单独配置时仅为兼容本地启动而回退。
+    pepper: ${ASSIGNMENT_CODE_PEPPER:${JWT_SECRET:}}
+
 spring:
   application:
     name: yf-boot-api
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
   profiles:
     active: dev
   main:

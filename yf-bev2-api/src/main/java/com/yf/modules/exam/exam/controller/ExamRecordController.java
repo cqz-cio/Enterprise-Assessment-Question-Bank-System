@@ -6,6 +6,7 @@ import com.yf.base.api.api.controller.BaseController;
 import com.yf.base.api.api.dto.PagingReqDTO;
 import com.yf.modules.exam.exam.dto.ExamRecordDTO;
 import com.yf.modules.exam.exam.dto.request.ExamRecordListReqDTO;
+import com.yf.modules.exam.exam.dto.response.ExamRecordClientRespDTO;
 import com.yf.modules.exam.exam.service.ExamRecordService;
 import com.yf.system.modules.user.UserUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,19 +60,23 @@ public class ExamRecordController extends BaseController {
      * @return
      */
     @Operation(summary = "分页查找-学员端", description = "用于学员端，查看自己的考试记录")
+    @RequiresPermissions("exam:client:record")
     @PostMapping("/client-paging")
-    public ApiRest<IPage<ExamRecordDTO>> clientPaging(@RequestBody PagingReqDTO<ExamRecordListReqDTO> reqDTO) {
+    public ApiRest<IPage<ExamRecordClientRespDTO>> clientPaging(
+            @RequestBody PagingReqDTO<ExamRecordListReqDTO> reqDTO) {
 
         ExamRecordListReqDTO params = reqDTO.getParams();
         if (params == null) {
             params = new ExamRecordListReqDTO();
+            reqDTO.setParams(params);
         }
 
         // 限定查找自己的考试记录
         params.setUserId(UserUtils.getUserId());
 
         //分页查询并转换
-        IPage<ExamRecordDTO> page = examRecordService.clientPaging(reqDTO);
+        IPage<ExamRecordClientRespDTO> page = examRecordService.clientPaging(reqDTO)
+                .convert(ExamRecordClientRespDTO::from);
 
         return super.success(page);
     }

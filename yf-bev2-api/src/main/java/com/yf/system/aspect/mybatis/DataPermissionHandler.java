@@ -3,6 +3,7 @@ package com.yf.system.aspect.mybatis;
 import com.baomidou.mybatisplus.extension.plugins.handler.MultiDataPermissionHandler;
 import com.yf.ability.shiro.dto.SysUserLoginDTO;
 import com.yf.base.enums.DataScope;
+import com.yf.system.modules.user.enums.SysRoleId;
 import lombok.extern.log4j.Log4j2;
 import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.Expression;
@@ -162,8 +163,10 @@ public class DataPermissionHandler implements MultiDataPermissionHandler {
 
         List<String> roles = user.getRoles();
 
-        return roles != null &&
-                roles.size() == 1 &&
-                "user".equals(roles.get(0));
+        return roles != null
+                && roles.size() == 1
+                && (SysRoleId.USER.equals(roles.get(0))
+                || SysRoleId.EMPLOYEE.equals(roles.get(0))
+                || SysRoleId.CANDIDATE.equals(roles.get(0)));
     }
 }

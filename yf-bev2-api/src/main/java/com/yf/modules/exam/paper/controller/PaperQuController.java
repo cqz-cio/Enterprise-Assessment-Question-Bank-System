@@ -12,6 +12,8 @@ import com.yf.modules.exam.paper.service.PaperQuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
+import com.yf.system.modules.user.UserUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,9 +44,10 @@ public class PaperQuController extends BaseController {
      * @return
      */
     @Operation(summary = "试题详情", description = "查找试题详情用于答题")
+    @RequiresPermissions("exam:client:enter")
     @PostMapping("/detail-for-answer")
     public ApiRest<PaperQuDetailDTO> detail(@RequestBody PaperDetailReqDTO reqDTO) {
-        PaperQuDetailDTO dto = baseService.detailForAnswer(reqDTO.getPaperId(), reqDTO.getQuId());
+        PaperQuDetailDTO dto = baseService.detailForAnswer(reqDTO.getPaperId(), reqDTO.getQuId(), UserUtils.getUserId());
         return super.success(dto);
     }
 
@@ -56,10 +59,11 @@ public class PaperQuController extends BaseController {
      * @return
      */
     @Operation(summary = "查找答题卡列表")
+    @RequiresPermissions("exam:client:enter")
     @PostMapping("/list-card")
     public ApiRest<List<PaperQuCardRespDTO>> list(@RequestBody BaseIdReqDTO reqDTO) {
         // 查找列表
-        List<PaperQuCardRespDTO> dtoList = baseService.listQuCard(reqDTO.getId());
+        List<PaperQuCardRespDTO> dtoList = baseService.listQuCard(reqDTO.getId(), UserUtils.getUserId());
         return super.success(dtoList);
     }
 
@@ -70,9 +74,10 @@ public class PaperQuController extends BaseController {
      * @return
      */
     @Operation(summary = "保存答题", description = "考试过程中实时保存答题内容")
+    @RequiresPermissions("exam:client:enter")
     @PostMapping("/fill-answer")
     public ApiRest<PaperQuFillRespDTO> fillAnswer(@RequestBody PaperQuFillReqDTO reqDTO) {
-        PaperQuFillRespDTO respDTO = baseService.fillAnswer(reqDTO);
+        PaperQuFillRespDTO respDTO = baseService.fillAnswer(reqDTO, UserUtils.getUserId());
         return super.success(respDTO);
     }
 }

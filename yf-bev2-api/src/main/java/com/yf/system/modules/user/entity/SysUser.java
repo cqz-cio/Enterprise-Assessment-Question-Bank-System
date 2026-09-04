@@ -24,6 +24,9 @@ public class SysUser extends Model<SysUser> {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    public static final String DEFAULT_AVATAR =
+            "https://be2.yfhl.net/upload/file/2025/04/23/1914975014591750145.jpeg";
+
     /**
      * ID
      */
@@ -77,6 +80,24 @@ public class SysUser extends Model<SysUser> {
      * 邮箱
      */
     private String email;
+
+    /**
+     * 员工工号；候选人内部用户为空
+     */
+    @TableField("employee_no")
+    private String employeeNo;
+
+    /**
+     * 最近审核信息
+     */
+    @TableField("audit_by")
+    private String auditBy;
+
+    @TableField("audit_time")
+    private Date auditTime;
+
+    @TableField("audit_remark")
+    private String auditRemark;
 
     /**
      * 部门编码

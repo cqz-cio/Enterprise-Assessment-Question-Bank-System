@@ -13,3 +13,35 @@ export const detailApi = (data: any) => {
     data
   })
 }
+
+export const validateImportApi = (data: FormData) => {
+  return request.post({
+    url: '/api/exam/repo/qu/import/validate',
+    data,
+    headersType: 'multipart/form-data'
+  })
+}
+
+export const importQuestionsApi = (data: FormData) => {
+  return request.post({
+    url: '/api/exam/repo/qu/import',
+    data,
+    headersType: 'multipart/form-data'
+  })
+}
+
+export const downloadImportTemplateApi = () => {
+  return request.get({
+    url: '/api/exam/repo/qu/import-template',
+    responseType: 'blob'
+  })
+}
+
+export const downloadImportErrorReportApi = (data: FormData) => {
+  return request.post({
+    url: '/api/exam/repo/qu/import-error-report',
+    data,
+    headersType: 'multipart/form-data',
+    responseType: 'blob'
+  })
+}

@@ -73,7 +73,7 @@ public class SysDepartController extends BaseController {
      * @param reqDTO
      * @return
      */
-    @RequiresPermissions(value = {"sys:depart:list"})
+    @RequiresPermissions(value = {"sys:depart:view"})
     @Operation(summary = "查找详情")
     @PostMapping("/detail")
     public ApiRest<SysDepartDTO> find(@RequestBody BaseIdReqDTO reqDTO) {
@@ -90,6 +90,7 @@ public class SysDepartController extends BaseController {
      * @return
      */
     @Operation(summary = "部门树列表")
+    @RequiresPermissions("sys:depart:view")
     @PostMapping("/tree")
     public ApiRest<List<SysDepartTreeDTO>> tree() {
         List<SysDepartTreeDTO> dtoList = baseService.findTree(true);

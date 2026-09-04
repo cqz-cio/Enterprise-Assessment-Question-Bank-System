@@ -15,6 +15,7 @@ import com.yf.modules.exam.paper.entity.PaperQu;
 import com.yf.modules.exam.paper.entity.PaperQuAnswer;
 import com.yf.modules.exam.paper.mapper.PaperQuMapper;
 import com.yf.modules.exam.paper.service.PaperQuAnswerService;
+import com.yf.modules.exam.paper.service.PaperAccessService;
 import com.yf.modules.exam.paper.service.PaperQuService;
 import com.yf.modules.exam.repo.dto.RepoQuAnswerDTO;
 import com.yf.modules.exam.repo.dto.request.RepoQuDetailDTO;
@@ -39,6 +40,7 @@ import java.util.*;
 public class PaperQuServiceImpl extends ServiceImpl<PaperQuMapper, PaperQu> implements PaperQuService {
 
     private final PaperQuAnswerService paperQuAnswerService;
+    private final PaperAccessService paperAccessService;
 
 
     @Transactional(rollbackFor = Exception.class)
@@ -89,7 +91,9 @@ public class PaperQuServiceImpl extends ServiceImpl<PaperQuMapper, PaperQu> impl
     }
 
     @Override
-    public List<PaperQuCardRespDTO> listQuCard(String paperId) {
+    public List<PaperQuCardRespDTO> listQuCard(String paperId, String userId) {
+
+        paperAccessService.requireOwner(paperId, userId);
 
 
         //查找全部题目
@@ -130,17 +134,20 @@ public class PaperQuServiceImpl extends ServiceImpl<PaperQuMapper, PaperQu> impl
     }
 
     @Override
-    public PaperQuDetailDTO detailForAnswer(String paperId, String quId) {
+    public PaperQuDetailDTO detailForAnswer(String paperId, String quId, String userId) {
+        paperAccessService.requireOwner(paperId, userId);
         return baseMapper.detailForAnswer(paperId, quId);
     }
 
     @Override
-    public PaperQuFillRespDTO fillAnswer(PaperQuFillReqDTO reqDTO) {
+    public PaperQuFillRespDTO fillAnswer(PaperQuFillReqDTO reqDTO, String userId) {
 
         // 参数
         String paperId = reqDTO.getPaperId();
         String quId = reqDTO.getQuId();
         List<String> checkedItems = reqDTO.getCheckedItems();
+
+        paperAccessService.requireWritableOwner(paperId, userId);
 
         //查找全部题目
         QueryWrapper<PaperQu> wrapper = new QueryWrapper<>();

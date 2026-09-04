@@ -44,6 +44,9 @@ public class Paper extends Model<Paper> {
     @TableField("exam_id")
     private String examId;
 
+    @TableField("assignment_id")
+    private String assignmentId;
+
     /**
      * 考试标题
      */

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yf.modules.exam.assignment.mapper.ExamAssignmentMapper">
+
+    <select id="selectByIdForUpdate" resultType="com.yf.modules.exam.assignment.entity.ExamAssignment">
+        SELECT * FROM el_exam_assignment WHERE id = #{id} FOR UPDATE
+    </select>
+
+    <select id="paging" resultType="com.yf.modules.exam.assignment.dto.response.AssignmentListRespDTO">
+        SELECT a.id,
+               a.exam_id AS examId,
+               a.user_id AS userId,
+               a.subject_type AS subjectType,
+               a.subject_name AS subjectName,
+               a.candidate_no AS candidateNo,
+               a.mobile,
+               a.email,
+               a.depart_id AS departId,
+               d.dept_name AS departName,
+               a.position_id AS positionId,
+               p.name AS positionName,
+               a.target_grade_id AS targetGradeId,
+               g.name AS targetGradeName,
+               a.batch_no AS batchNo,
+               a.valid_from AS validFrom,
+               a.expire_at AS expireAt,
+               CASE
+                   WHEN a.status IN ('ASSIGNED', 'STARTED') AND a.expire_at &lt; NOW() THEN 'EXPIRED'
+                   ELSE a.status
+               END AS status,
+               a.paper_id AS paperId,
+               paper.passed,
+               e.title AS examTitle,
+               a.activated_at AS activatedAt,
+               a.submitted_at AS submittedAt,
+               a.completed_at AS completedAt,
+               a.disabled_reason AS disabledReason,
+               a.create_time AS createTime
+        FROM el_exam_assignment a
+        JOIN el_position p ON p.id = a.position_id
+        LEFT JOIN el_sys_depart d ON d.id = a.depart_id
+        LEFT JOIN el_position_grade g ON g.id = a.target_grade_id
+        JOIN el_exam e ON e.id = a.exam_id
+        LEFT JOIN el_paper paper ON paper.id = a.paper_id
+        <where>
+            a.subject_type = 'CANDIDATE'
+            <if test="query != null">
+                <if test="query.subjectName != null and query.subjectName != ''">
+                    AND a.subject_name LIKE CONCAT('%', #{query.subjectName}, '%')
+                </if>
+                <if test="query.positionId != null and query.positionId != ''">
+                    AND a.position_id = #{query.positionId}
+                </if>
+                <if test="query.departId != null and query.departId != ''">
+                    AND a.depart_id = #{query.departId}
+                </if>
+                <if test="query.batchNo != null and query.batchNo != ''">
+                    AND a.batch_no LIKE CONCAT('%', #{query.batchNo}, '%')
+                </if>
+                <if test="query.status != null and query.status != ''">
+                    AND (CASE WHEN a.status IN ('ASSIGNED', 'STARTED') AND a.expire_at &lt; NOW()
+                              THEN 'EXPIRED' ELSE a.status END) = #{query.status}
+                </if>
+                <if test="query.passed != null">
+                    AND paper.passed = #{query.passed}
+                </if>
+                <if test="query.validFrom != null">
+                    AND a.valid_from &gt;= #{query.validFrom}
+                </if>
+                <if test="query.expireTo != null">
+                    AND a.expire_at &lt;= #{query.expireTo}
+                </if>
+            </if>
+        </where>
+        ORDER BY a.create_time DESC
+    </select>
+</mapper>

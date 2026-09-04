@@ -9,11 +9,15 @@ import com.yf.base.api.api.dto.PagingReqDTO;
 import com.yf.modules.exam.paper.dto.PaperDTO;
 import com.yf.modules.exam.paper.dto.response.PaperCheckRespDTO;
 import com.yf.modules.exam.paper.dto.response.PaperRealTimeRespDTO;
+import com.yf.modules.exam.paper.dto.response.PaperResultRespDTO;
 import com.yf.modules.exam.paper.service.PaperService;
+import com.yf.modules.exam.assignment.dto.response.AssignmentStartRespDTO;
+import com.yf.modules.exam.assignment.service.ExamAssignmentService;
 import com.yf.system.modules.user.UserUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaperController extends BaseController {
 
     private final PaperService baseService;
+    private final ExamAssignmentService assignmentService;
 
 
     /**
@@ -43,10 +48,11 @@ public class PaperController extends BaseController {
      * @return
      */
     @Operation(summary = "查找详情")
+    @RequiresPermissions("exam:client:enter")
     @PostMapping("/detail")
-    public ApiRest<PaperDTO> detail(@RequestBody BaseIdReqDTO reqDTO) {
-        PaperDTO dto = baseService.detail(reqDTO.getId());
-        return super.success(dto);
+    public ApiRest<PaperResultRespDTO> detail(@RequestBody BaseIdReqDTO reqDTO) {
+        PaperDTO dto = baseService.detail(reqDTO.getId(), UserUtils.getUserId());
+        return super.success(PaperResultRespDTO.from(dto));
     }
 
     /**
@@ -56,6 +62,7 @@ public class PaperController extends BaseController {
      * @return
      */
     @Operation(summary = "查找详情-带答题结果")
+    @RequiresPermissions("exam:record:list")
     @PostMapping("/full-detail")
     public ApiRest<PaperDTO> fullDetail(@RequestBody BaseIdReqDTO reqDTO) {
         PaperDTO dto = baseService.fullDetail(reqDTO.getId());
@@ -69,6 +76,7 @@ public class PaperController extends BaseController {
      * @return
      */
     @Operation(summary = "分页查找")
+    @RequiresPermissions("exam:record:list")
     @PostMapping("/paging")
     public ApiRest<IPage<PaperDTO>> paging(@RequestBody PagingReqDTO<PaperDTO> reqDTO) {
 
@@ -85,6 +93,7 @@ public class PaperController extends BaseController {
      * @return
      */
     @Operation(summary = "考试校验", description = "学员进入考试")
+    @RequiresPermissions("exam:client:list")
     @PostMapping("/pre-check")
     public ApiRest<PaperCheckRespDTO> preCheck(@RequestBody BaseIdReqDTO reqDTO) {
         PaperCheckRespDTO respDTO = baseService.preCheck(reqDTO.getId(), UserUtils.getUserId());
@@ -99,11 +108,19 @@ public class PaperController extends BaseController {
      * @return
      */
     @Operation(summary = "创建考试", description = "学员进入考试")
+    @RequiresPermissions("exam:client:list")
     @PostMapping("/create")
     public ApiRest<BaseIdRespDTO> create(@RequestBody BaseIdReqDTO reqDTO) {
         //分页查询并转换
         String paperId = baseService.createPaper(reqDTO.getId(), UserUtils.getUserId());
         return super.success(new BaseIdRespDTO(paperId));
+    }
+
+    @Operation(summary = "按考核分配创建或恢复试卷")
+    @RequiresPermissions("exam:client:enter")
+    @PostMapping("/create-by-assignment")
+    public ApiRest<AssignmentStartRespDTO> createByAssignment(@RequestBody BaseIdReqDTO reqDTO) {
+        return super.success(assignmentService.start(reqDTO.getId(), UserUtils.getUserId()));
     }
 
     /**
@@ -113,9 +130,10 @@ public class PaperController extends BaseController {
      * @return
      */
     @Operation(summary = "学员交卷", description = "学员主动交卷")
+    @RequiresPermissions("exam:client:enter")
     @PostMapping("/hand")
     public ApiRest<BaseIdRespDTO> hand(@RequestBody BaseIdReqDTO reqDTO) {
-        baseService.handPaper(reqDTO.getId());
+        baseService.handPaper(reqDTO.getId(), UserUtils.getUserId());
         return super.success();
     }
 
@@ -127,9 +145,10 @@ public class PaperController extends BaseController {
      * @return
      */
     @Operation(summary = "获取试卷的实时状态", description = "获取试卷的实时状态，包含剩余时间、是否已交卷等")
+    @RequiresPermissions("exam:client:enter")
     @PostMapping("/real-time-state")
     public ApiRest<PaperRealTimeRespDTO> realTimeState(@RequestBody BaseIdReqDTO reqDTO) {
-        PaperRealTimeRespDTO respDTO = baseService.realTimeState(reqDTO.getId());
+        PaperRealTimeRespDTO respDTO = baseService.realTimeState(reqDTO.getId(), UserUtils.getUserId());
         return super.success(respDTO);
     }
 }

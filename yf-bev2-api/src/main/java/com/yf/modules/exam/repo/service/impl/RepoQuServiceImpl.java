@@ -80,6 +80,9 @@ public class RepoQuServiceImpl extends ServiceImpl<RepoQuMapper, RepoQu> impleme
         //复制参数
         RepoQu entity = new RepoQu();
         BeanMapper.copy(reqDTO, entity);
+        if (entity.getStatus() == null) {
+            entity.setStatus(1);
+        }
         this.saveOrUpdate(entity);
 
         // 保存选项
@@ -156,7 +159,8 @@ public class RepoQuServiceImpl extends ServiceImpl<RepoQuMapper, RepoQu> impleme
         QueryWrapper<RepoQu> wrapper = new QueryWrapper<>();
         wrapper.lambda()
                 .select(RepoQu::getId, RepoQu::getQuType)
-                .eq(RepoQu::getRepoId, repoId);
+                .eq(RepoQu::getRepoId, repoId)
+                .eq(RepoQu::getStatus, 1);
 
         List<RepoQu> list = this.list(wrapper);
         if (CollectionUtils.isEmpty(list)) {

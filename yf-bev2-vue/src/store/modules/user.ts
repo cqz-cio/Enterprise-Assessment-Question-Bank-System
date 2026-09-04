@@ -42,18 +42,26 @@ export const useUserStore = defineStore('userInfo', {
 
     // 用户注册
     register(data?: UserLoginType): Promise<unknown> {
-      return new Promise<void>((resolve, reject) => {
-        // 注册用户
+      return new Promise((resolve, reject) => {
         apiRegister(data)
-          .then(async (res) => {
-            this.setUserInfo(res.data)
-            await this.generateRoutes()
+          .then((res) => {
             resolve(res.data)
           })
           .catch((err) => {
             reject(err)
           })
       })
+    },
+    setCandidateSession(data: any) {
+      this.setUserInfo({
+        token: data.token,
+        realName: data.candidateName,
+        roles: ['CANDIDATE'],
+        permissions: ['exam:client:enter']
+      })
+      setStorage('roleRouters', [])
+      setStorage('candidateAssignment', data)
+      permissionStore.setIsAddRouters(true)
     },
     // 用户登录
     logout(): Promise<unknown> {

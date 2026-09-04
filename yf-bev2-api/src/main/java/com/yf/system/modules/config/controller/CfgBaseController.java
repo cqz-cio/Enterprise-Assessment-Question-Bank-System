@@ -9,6 +9,7 @@ import com.yf.system.modules.config.service.CfgSwitchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +42,7 @@ public class CfgBaseController extends BaseController {
      * @return
      */
     @Operation(summary = "保存基础配置")
+    @RequiresRoles("admin")
     @PostMapping("/save")
     public ApiRest<?> save(@RequestBody CfgBaseDTO reqDTO) {
         baseService.save(reqDTO);

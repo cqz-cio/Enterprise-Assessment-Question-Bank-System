@@ -13,3 +13,9 @@ export const treeApi = (data?: any) => {
     data
   })
 }
+
+export const treeSelectApi = () => {
+  return request.post({
+    url: '/api/sys/depart/tree-select'
+  })
+}

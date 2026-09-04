@@ -3,7 +3,7 @@
     <el-col :span="24">
       <el-card>
         <div class="top-opt-box">
-          <ExamTimer :paperId="paperId" />
+          <ExamTimer :paperId="paperId" :assignment-id="assignmentId" />
 
           <el-button icon="Select" size="large" type="primary" @click="handPaper"
             >立即交卷
@@ -22,7 +22,7 @@
             :type="tagType(item)"
             class="tag-item"
             size="large"
-            @click="quDetail(item.quId)"
+            @click="item.quId && quDetail(item.quId)"
             >{{ i + 1 }}
           </el-tag>
         </div>
@@ -76,9 +76,10 @@ const { push } = useRouter()
 
 const route = useRoute()
 const paperId = route.query.id as string
-const detail = ref({})
-let cardList = ref<QuCardType>()
-let allQuIds = ref<string[]>([])
+const assignmentId = route.query.assignmentId as string
+const detail = ref<any>({})
+const cardList = ref<QuCardType[]>([])
+const allQuIds = ref<string[]>([])
 
 const hasNext = ref(false)
 const hasPrev = ref(false)
@@ -120,30 +121,34 @@ const quDetail = (quId: string) => {
 }
 
 const buildAllQuIds = () => {
-  const ids = []
-  if (!cardList.value || cardList.value.length === 0) {
-    return []
+  const ids: string[] = []
+  if (cardList.value.length === 0) {
+    return
   }
   for (let i = 0; i < cardList.value.length; i++) {
-    const itemList = cardList.value[i].itemList
+    const itemList = cardList.value[i].itemList || []
     for (let j = 0; j < itemList.length; j++) {
-      ids.push(itemList[j].quId)
+      if (itemList[j].quId) ids.push(itemList[j].quId as string)
     }
   }
   allQuIds.value = ids
 
   // 查找第一题
-  quDetail(ids[0])
+  if (ids[0]) quDetail(ids[0])
 }
 
 // 显示首个题目
 const handPaper = () => {
   handApi({ id: paperId }).then(() => {
-    push({ name: 'ExamClientResult', query: { id: paperId } })
+    if (assignmentId) {
+      push({ name: 'CandidateExamResult', query: { assignmentId } })
+    } else {
+      push({ name: 'ExamClientResult', query: { id: paperId } })
+    }
   })
 }
 
-const tagType = (item) => {
+const tagType = (item: any) => {
   if (item.quId === detail.value.quId) {
     return 'danger'
   }
@@ -153,7 +158,7 @@ const tagType = (item) => {
   return 'info'
 }
 
-const itemClick = (e) => {
+const itemClick = (e: any) => {
   e.checked = !e.checked
   // 单选排他
   if (detail.value.quType === 'radio' || detail.value.quType === 'judge') {
@@ -170,7 +175,7 @@ const itemClick = (e) => {
 
 const markAnswered = (id: string, answered: boolean) => {
   for (const card of cardList.value) {
-    const itemList = card.itemList
+    const itemList = card.itemList || []
     for (const item of itemList) {
       if (item.quId === id) {
         item.answered = answered
@@ -180,7 +185,7 @@ const markAnswered = (id: string, answered: boolean) => {
 }
 
 const saveAnswer = () => {
-  const checkedItems = []
+  const checkedItems: string[] = []
   for (const item of detail.value.answerList) {
     if (item.checked) {
       checkedItems.push(item.answerId)

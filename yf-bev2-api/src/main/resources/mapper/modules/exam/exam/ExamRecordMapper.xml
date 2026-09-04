@@ -15,10 +15,13 @@
     </resultMap>
 
     <select id="clientPaging" resultMap="BaseResultMap">
-        SELECT rc.* FROM el_exam_record rc INNER JOIN el_exam ex ON rc.exam_id=ex.id WHERE user_id=#{query.userId}
+        SELECT rc.exam_id, rc.passed
+        FROM el_exam_record rc
+        INNER JOIN el_exam ex ON rc.exam_id = ex.id
+        WHERE rc.user_id = #{query.userId}
         <if test="query!=null">
             <if test="query.title!=null and query.title!=''">
-                AND ex.title LIKE CONCAT('%', #{query.title} '%')
+                AND ex.title LIKE CONCAT('%', #{query.title}, '%')
             </if>
             <if test="query.passed!=null">
                 AND rc.passed=#{query.passed}

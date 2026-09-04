@@ -3,15 +3,18 @@ import { DataTable } from '@/components/DataTable'
 import RepoSelect from '@/views/Exam/Repo/components/RepoSelect.vue'
 import { DictListSelect } from '@/components/DictListSelect'
 import QuFormDialog from '@/views/Exam/Repo/components/QuFormDialog.vue'
+import QuImportDialog from '@/views/Exam/Repo/components/QuImportDialog.vue'
 import { ContentWrap } from '@/components/ContentWrap'
 import { ref } from 'vue'
 import type { OptionsType, TableQueryType } from '@/components/DataTable/src/types'
 import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const quId = ref()
 
 // 添加修改
 const dialogVisible = ref(false)
+const importDialogVisible = ref(false)
 
 // 表格查询参数
 let query = ref<TableQueryType>({
@@ -44,6 +47,11 @@ let options = ref<OptionsType>({
   del: {
     enable: true,
     permission: ['repo:qu:delete']
+  },
+  ip: {
+    enable: true,
+    label: 'Excel 批量导入',
+    permission: ['repo:qu:import']
   }
 })
 
@@ -57,6 +65,14 @@ const handleAdd = () => {
 const handleEdit = (row: any) => {
   quId.value = row.id
   dialogVisible.value = true
+}
+
+const handleImport = () => {
+  if (!query.value.params.repoId) {
+    ElMessage.warning('请先选择要导入的目标题库')
+    return
+  }
+  importDialogVisible.value = true
 }
 
 // 刷新列表
@@ -73,6 +89,7 @@ const handleRefresh = () => {
       :query="query"
       @on-add="handleAdd"
       @on-edit="handleEdit"
+      @on-import="handleImport"
     >
       <template #search>
         <el-input v-model="query.params.content" class="filter-item" placeholder="搜索题目" />
@@ -91,6 +108,13 @@ const handleRefresh = () => {
         <el-table-column label="所属题库" prop="repoId_dictText" />
         <el-table-column align="center" label="题型" prop="quType_dictText" />
         <el-table-column align="center" label="难度等级" prop="difficultyLevel_dictText" />
+        <el-table-column align="center" label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 0 ? 'info' : 'success'">
+              {{ row.status === 0 ? '停用' : '启用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column align="center" label="创建人" prop="createBy_dictText" />
         <el-table-column align="center" label="创建时间" prop="createTime" show-overflow-tooltip />
       </template>
@@ -101,6 +125,12 @@ const handleRefresh = () => {
       :qu-id="quId"
       :repo-id="query.params.repoId"
       @saved="handleRefresh"
+    />
+
+    <QuImportDialog
+      v-model:visible="importDialogVisible"
+      :repo-id="query.params.repoId"
+      @imported="handleRefresh"
     />
   </ContentWrap>
 </template>

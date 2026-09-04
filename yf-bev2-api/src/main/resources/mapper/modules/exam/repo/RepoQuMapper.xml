@@ -7,10 +7,15 @@
         <id column="id" property="id"/>
         <result column="repo_id" property="repoId"/>
         <result column="chapter_id" property="chapterId"/>
+        <result column="external_code" property="externalCode"/>
         <result column="qu_type" property="quType"/>
         <result column="difficulty_level" property="difficultyLevel"/>
         <result column="content" property="content"/>
         <result column="analysis" property="analysis"/>
+        <result column="status" property="status"/>
+        <result column="reference_answer" property="referenceAnswer"/>
+        <result column="grading_criteria" property="gradingCriteria"/>
+        <result column="tags" property="tags"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
         <result column="create_by" property="createBy"/>

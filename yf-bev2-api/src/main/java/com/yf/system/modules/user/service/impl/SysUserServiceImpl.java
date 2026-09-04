@@ -40,7 +40,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -66,6 +69,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final CfgSwitchService cfgSwitchService;
 
     private final SysMenuService sysMenuService;
+
+    private final JwtUtils jwtUtils;
 
 
     @Override
@@ -93,6 +98,15 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Override
     public IPage<UserListRespDTO> paging(PagingReqDTO<SysUserQueryReqDTO> reqDTO) {
+        List<String> roles = UserUtils.getRoles();
+        if (roles != null && roles.contains(SysRoleId.HR) && !roles.contains(SysRoleId.ADMIN)) {
+            SysUserQueryReqDTO params = reqDTO.getParams();
+            if (params == null) {
+                params = new SysUserQueryReqDTO();
+                reqDTO.setParams(params);
+            }
+            params.setRoleIds(List.of(SysRoleId.EMPLOYEE));
+        }
         return baseMapper.paging(reqDTO.toPage(), reqDTO.getParams());
     }
 
@@ -157,11 +171,12 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new ServiceException(ApiError.ERROR_90010006);
         }
 
-        if (!StringUtils.isBlank(password)) {
-            boolean pass = PassHandler.checkPass(password, user.getSalt(), user.getPassword());
-            if (!pass) {
-                throw new ServiceException(ApiError.ERROR_90010002);
-            }
+        if (StringUtils.isBlank(password)) {
+            throw new ServiceException(ApiError.ERROR_90010002);
+        }
+        boolean pass = PassHandler.checkPass(password, user.getSalt(), user.getPassword());
+        if (!pass) {
+            throw new ServiceException(ApiError.ERROR_90010002);
         }
 
         return this.setToken(user);
@@ -180,45 +195,53 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     public SysUserLoginDTO token(String token) {
 
-        // 获得会话
         String username;
         try {
-            username = JwtUtils.getUsername(token);
+            username = jwtUtils.getVerifiedUsername(token);
         } catch (Exception e) {
             throw new ServiceException("会话失效，请重新登录！");
         }
-
-        log.error("++++++++用户名：{}", username);
 
         Map<String, Object> json = redisService.getJson(Constant.USER_NAME_KEY + username);
         if (json == null) {
             throw new ServiceException(ApiError.ERROR_10010002);
         }
 
-       return JsonHelper.parseObject(json, SysUserLoginDTO.class);
+        SysUserLoginDTO session = JsonHelper.parseObject(json, SysUserLoginDTO.class);
+        if (session == null || !sameToken(token, session.getToken())) {
+            throw new ServiceException(ApiError.ERROR_10010002);
+        }
+
+        SysUser current = this.getById(session.getId());
+        if (current == null || !UserState.NORMAL.equals(current.getState())
+                || !username.equals(current.getUserName())) {
+            redisService.del(Constant.USER_NAME_KEY + username);
+            throw new ServiceException(ApiError.ERROR_10010002);
+        }
+
+        return session;
     }
 
     @CacheEvict(value = CacheKey.TOKEN, key = "#token")
     @Override
     public void logout(String token) {
-
-        // 遵循T下线原则
-        boolean tick = cfgSwitchService.isOn(FuncSwitch.LOGIN_TICK);
-        if (tick) {
-            try {
-                String username = JwtUtils.getUsername(token);
-                String[] keys = new String[]{Constant.USER_NAME_KEY + username};
-                redisService.del(keys);
-            } catch (Exception e) {
-                log.error(e);
+        try {
+            String username = jwtUtils.getVerifiedUsername(token);
+            String key = Constant.USER_NAME_KEY + username;
+            Map<String, Object> json = redisService.getJson(key);
+            SysUserLoginDTO session = json == null ? null : JsonHelper.parseObject(json, SysUserLoginDTO.class);
+            if (session != null && sameToken(token, session.getToken())) {
+                redisService.del(key);
             }
+        } catch (Exception e) {
+            log.debug("忽略无效 token 的退出请求");
         }
     }
 
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public void update(SysUserUpdateReqDTO reqDTO) {
+    public SysUserLoginDTO update(SysUserUpdateReqDTO reqDTO) {
 
 
         // 更新用户资料
@@ -247,7 +270,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         // 更新信息
         this.updateById(user);
 
-        this.setToken(user);
+        return this.setToken(user);
     }
 
     @Override
@@ -316,6 +339,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             BeanMapper.copy(reqDTO, user);
         }
 
+        if (StringUtils.isBlank(user.getAvatar())) {
+            user.setAvatar(SysUser.DEFAULT_AVATAR);
+        }
+
         // 级别
         int level = sysUserRoleService.findMaxLevel(reqDTO.getId());
         if (level > UserUtils.getRoleLevel()) {
@@ -335,6 +362,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
         // 保存绑定关系
         this.saveOrUpdate(user);
+
+        // 用户资料或角色被管理端修改后，旧会话中的授权信息必须失效。
+        this.invalidateSessions(List.of(user.getId()));
 
     }
 
@@ -368,15 +398,25 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new ServiceException("用户名已存在，换一个吧！！");
         }
 
+        QueryWrapper<SysUser> employeeNoWrapper = new QueryWrapper<>();
+        employeeNoWrapper.lambda()
+                .select(SysUser::getId)
+                .eq(SysUser::getEmployeeNo, reqDTO.getEmployeeNo().trim());
+        if (this.count(employeeNoWrapper) > 0) {
+            throw new ServiceException("员工工号已存在！");
+        }
+
         return this.saveAndLogin(
                 null,
                 reqDTO.getUserName(),
                 reqDTO.getDeptCode(),
                 reqDTO.getRealName(),
-                null,
-                null,
+                SysRoleId.EMPLOYEE,
+                reqDTO.getMobile(),
                 "",
-                reqDTO.getPassword());
+                reqDTO.getPassword(),
+                reqDTO.getEmployeeNo(),
+                reqDTO.getEmail());
     }
 
 
@@ -391,7 +431,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @param password
      * @return
      */
-    private SysUserLoginDTO saveAndLogin(String userId, String userName, String deptCode, String realName, String role, String mobile, String avatar, String password) {
+    private SysUserLoginDTO saveAndLogin(String userId, String userName, String deptCode, String realName,
+                                         String role, String mobile, String avatar, String password,
+                                         String employeeNo, String email) {
 
         // 保存用户
         SysUser user = new SysUser();
@@ -409,19 +451,16 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             deptCode = cfgSwitchService.val(FuncSwitch.USER_DEPT_CODE);
         }
 
-        // 需要审核
-        boolean audit = cfgSwitchService.isOn(FuncSwitch.USER_AUDIT);
-        if (audit) {
-            user.setState(UserState.AUDIT);
-        } else {
-            user.setState(UserState.NORMAL);
-        }
+        // 企业员工自由注册后固定进入待审核状态，不能由通用开关绕过。
+        user.setState(UserState.AUDIT);
 
         user.setUserName(userName);
         user.setRealName(realName);
         user.setDeptCode(deptCode);
-        user.setMobile(mobile);
-        user.setAvatar(avatar);
+        user.setMobile(StringUtils.trimToNull(mobile));
+        user.setEmail(StringUtils.trimToNull(email));
+        user.setEmployeeNo(employeeNo.trim());
+        user.setAvatar(StringUtils.defaultIfBlank(avatar, SysUser.DEFAULT_AVATAR));
         PassInfo passInfo = PassHandler.buildPassword(password);
         user.setPassword(passInfo.getPassword());
         user.setSalt(passInfo.getSalt());
@@ -431,8 +470,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (!StringUtils.isBlank(role)) {
             roleList.add(role);
         } else {
-            // 默认用户
-            roleList.add(SysRoleId.USER);
+            roleList.add(SysRoleId.EMPLOYEE);
         }
 
 
@@ -453,6 +491,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @return
      */
     private SysUserLoginDTO setToken(SysUser user) {
+        return setToken(user, null);
+    }
+
+    private SysUserLoginDTO setToken(SysUser user, Date maxExpiresAt) {
 
         // 获取一个用户登录的信息
         String key = Constant.USER_NAME_KEY + user.getUserName();
@@ -469,7 +511,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (UserState.NORMAL.equals(user.getState())) {
 
             // 根据用户生成Token
-            String token = JwtUtils.sign(user.getUserName());
+            String token = jwtUtils.sign(user.getUserName(), maxExpiresAt);
             respDTO.setToken(token);
 
             // 添加角色信息
@@ -481,11 +523,24 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
 
             // 保存如Redis
-            redisService.set(key, JsonHelper.toJson(respDTO));
+            long ttlSeconds = jwtUtils.remainingSeconds(token);
+            if (ttlSeconds <= 0 || !redisService.set(key, JsonHelper.toJson(respDTO), ttlSeconds)) {
+                throw new ServiceException("登录会话保存失败，请稍后重试！");
+            }
         }
 
         return respDTO;
 
+    }
+
+    @Override
+    public SysUserLoginDTO loginCandidate(String userId, Date expireAt) {
+        SysUser user = this.getById(userId);
+        if (user == null || !UserState.NORMAL.equals(user.getState())
+                || !sysUserRoleService.listRoleIds(userId).equals(List.of(SysRoleId.CANDIDATE))) {
+            throw new ServiceException("考核信息不存在或凭证错误！");
+        }
+        return setToken(user, expireAt);
     }
 
 
@@ -519,5 +574,74 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         respDTO.setRoleLevel(roleLevel);
         respDTO.setDataScope(dataScope);
         respDTO.setRoles(roleIds);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void auditRegistration(UserRegistrationAuditReqDTO reqDTO) {
+        if (!"APPROVE".equals(reqDTO.getAction()) && !"REJECT".equals(reqDTO.getAction())) {
+            throw new ServiceException("审核动作只允许 APPROVE 或 REJECT！");
+        }
+        SysUser user = this.getById(reqDTO.getUserId());
+        if (user == null || !UserState.AUDIT.equals(user.getState())) {
+            throw new ServiceException("待审核员工不存在或状态已变化！");
+        }
+
+        List<String> roles = sysUserRoleService.listRoleIds(user.getId());
+        if (!roles.contains(SysRoleId.EMPLOYEE) || roles.contains(SysRoleId.ADMIN)
+                || roles.contains(SysRoleId.HR) || roles.contains(SysRoleId.CANDIDATE)) {
+            throw new ServiceException("只能审核员工注册申请！");
+        }
+
+        boolean approve = "APPROVE".equals(reqDTO.getAction());
+        user.setState(approve ? UserState.NORMAL : UserState.DISABLED);
+        user.setAuditBy(UserUtils.getUserId());
+        user.setAuditTime(new Date());
+        user.setAuditRemark(StringUtils.trimToNull(reqDTO.getRemark()));
+        this.updateById(user);
+
+        // 审核通过时重置为唯一员工角色，避免注册链路夹带其他角色。
+        if (approve) {
+            sysUserRoleService.saveRoles(user.getId(), List.of(SysRoleId.EMPLOYEE), false);
+        }
+        this.invalidateSessions(List.of(user.getId()));
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void changeState(com.yf.base.api.api.dto.BaseStateReqDTO reqDTO) {
+        QueryWrapper<SysUser> wrapper = new QueryWrapper<>();
+        wrapper.lambda()
+                .in(SysUser::getId, reqDTO.getIds())
+                .ne(SysUser::getUserName, "admin");
+
+        List<SysUser> affectedUsers = this.list(wrapper);
+
+        SysUser record = new SysUser();
+        record.setState(reqDTO.getState());
+        this.update(record, wrapper);
+        this.invalidateSessions(affectedUsers.stream().map(SysUser::getId).toList());
+    }
+
+    @Override
+    public void invalidateSessions(List<String> userIds) {
+        if (CollectionUtils.isEmpty(userIds)) {
+            return;
+        }
+        List<SysUser> users = this.listByIds(userIds);
+        for (SysUser user : users) {
+            if (StringUtils.isNotBlank(user.getUserName())) {
+                redisService.del(Constant.USER_NAME_KEY + user.getUserName());
+            }
+        }
+    }
+
+    static boolean sameToken(String supplied, String cached) {
+        if (supplied == null || cached == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                supplied.getBytes(StandardCharsets.UTF_8),
+                cached.getBytes(StandardCharsets.UTF_8));
     }
 }

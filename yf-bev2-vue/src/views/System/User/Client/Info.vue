@@ -29,6 +29,11 @@
           </el-form-item>
         </el-col>
         <el-col :span="12">
+          <el-form-item label="电子邮箱" prop="email">
+            <el-input v-model="form.email" autocomplete="off" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
           <el-form-item label="身份证号" prop="idCard">
             <el-input v-model="form.idCard" autocomplete="off" />
           </el-form-item>
@@ -57,7 +62,7 @@ import type { UserDataType } from '../types'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { FileUploader } from '@/plugins/uploader'
 
-const userInfo = useUserStoreWithOut().getUserInfo
+const userStore = useUserStoreWithOut()
 
 const form = ref<UserDataType>({})
 const formRef = ref<FormInstance>()
@@ -77,14 +82,14 @@ const handleSave = (formEl: FormInstance | undefined) => {
   formEl.validate((valid) => {
     if (valid) {
       const formData = unref(form)
-      updateApi(formData).then(() => {
+      updateApi(formData).then((res) => {
+        userStore.setUserInfo(res.data)
+        form.value = res.data
         ElMessage({
           showClose: true,
           message: '操作成功！',
           type: 'success'
         })
-
-        loadInfo()
       })
     }
   })
@@ -92,8 +97,9 @@ const handleSave = (formEl: FormInstance | undefined) => {
 
 // 获取用户信息
 const loadInfo = () => {
-  infoApi({ token: userInfo?.token }).then((res) => {
+  infoApi({}).then((res) => {
     form.value = res.data
+    userStore.setUserInfo(res.data)
   })
 }
 

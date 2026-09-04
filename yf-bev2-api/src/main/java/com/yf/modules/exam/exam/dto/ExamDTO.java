@@ -70,6 +70,27 @@ public class ExamDTO implements Serializable {
     @Schema(description = "组卷题库ID")
     private String repoId;
 
+    @Dict(dictTable = "el_sys_depart", dicText = "dept_name", dicCode = "id")
+    @Schema(description = "部门ID")
+    private String departId;
+
+    @Dict(dictTable = "el_position", dicText = "name", dicCode = "id")
+    @Schema(description = "岗位ID")
+    private String positionId;
+
+    @Schema(description = "考核场景：INTERVIEW/REGULARIZATION/PROMOTION")
+    private String sceneType;
+
+    @Dict(dictTable = "el_position_grade", dicText = "name", dicCode = "id")
+    @Schema(description = "晋升目标职级ID，可选")
+    private String targetGradeId;
+
+    @Schema(description = "模板状态：1启用，0停用")
+    private Integer templateStatus;
+
+    @Schema(description = "是否随机选项")
+    private Integer optionShuffle;
+
     @Schema(description = "创建时间")
     private Date createTime;
 

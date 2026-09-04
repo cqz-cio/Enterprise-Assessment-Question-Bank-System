@@ -73,6 +73,7 @@ public class SysDicController extends BaseController {
      * @return
      */
     @Operation(summary = "分页查找")
+    @RequiresPermissions("sys:dict:paging")
     @PostMapping("/paging")
     public ApiRest<IPage<SysDicDTO>> paging(@RequestBody PagingReqDTO<SysDicDTO> reqDTO) {
         //分页查询并转换

@@ -52,6 +52,18 @@ public class SysUserDTO implements Serializable {
     @Schema(description = "邮箱")
     private String email;
 
+    @Schema(description = "员工工号")
+    private String employeeNo;
+
+    @Schema(description = "最近审核人")
+    private String auditBy;
+
+    @Schema(description = "最近审核时间")
+    private Date auditTime;
+
+    @Schema(description = "审核意见或驳回原因")
+    private String auditRemark;
+
     @Dict(dictTable = "el_sys_depart", dicCode = "dept_code", dicText = "dept_name")
     @Schema(description = "部门编码")
     private String deptCode;

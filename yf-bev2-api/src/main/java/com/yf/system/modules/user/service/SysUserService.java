@@ -9,6 +9,7 @@ import com.yf.system.modules.user.dto.response.UserListRespDTO;
 import com.yf.system.modules.user.entity.SysUser;
 
 import java.util.List;
+import java.util.Date;
 
 /**
  * <p>
@@ -71,7 +72,7 @@ public interface SysUserService extends IService<SysUser> {
      *
      * @param reqDTO
      */
-    void update(SysUserUpdateReqDTO reqDTO);
+    SysUserLoginDTO update(SysUserUpdateReqDTO reqDTO);
 
     /**
      * 修改密码
@@ -93,4 +94,24 @@ public interface SysUserService extends IService<SysUser> {
      * @return
      */
     SysUserLoginDTO reg(UserRegReqDTO reqDTO);
+
+    /**
+     * 审核员工注册申请。
+     */
+    void auditRegistration(UserRegistrationAuditReqDTO reqDTO);
+
+    /**
+     * 修改账号状态并撤销受影响用户的活动会话。
+     */
+    void changeState(com.yf.base.api.api.dto.BaseStateReqDTO reqDTO);
+
+    /**
+     * 撤销指定用户的活动会话，确保角色或状态变更立即生效。
+     */
+    void invalidateSessions(List<String> userIds);
+
+    /**
+     * 为已验证的候选人签发不超过考核截止时间的普通系统会话。
+     */
+    SysUserLoginDTO loginCandidate(String userId, Date expireAt);
 }

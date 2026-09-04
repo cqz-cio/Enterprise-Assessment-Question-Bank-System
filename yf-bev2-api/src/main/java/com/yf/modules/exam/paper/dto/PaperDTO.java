@@ -35,6 +35,9 @@ public class PaperDTO implements Serializable {
     @Schema(description = "考试ID")
     private String examId;
 
+    @Schema(description = "考核分配ID")
+    private String assignmentId;
+
     @Schema(description = "考试标题")
     private String title;
 

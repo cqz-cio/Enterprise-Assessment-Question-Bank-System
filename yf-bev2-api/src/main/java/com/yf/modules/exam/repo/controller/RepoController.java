@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.shiro.authz.annotation.Logical;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -44,7 +45,7 @@ public class RepoController extends BaseController {
     @RequiresPermissions(value = {"repo:repo:edit", "repo:repo:add"}, logical = Logical.OR)
     @Operation(summary = "添加或修改")
     @PostMapping("/save")
-    public ApiRest<?> save(@RequestBody RepoDTO reqDTO) {
+    public ApiRest<?> save(@Valid @RequestBody RepoDTO reqDTO) {
         repoService.save(reqDTO);
         return super.success();
     }

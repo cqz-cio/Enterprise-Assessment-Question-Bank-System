@@ -13,6 +13,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.shiro.authz.annotation.Logical;
+import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,6 +42,7 @@ public class UploadController extends BaseController {
      * @return
      */
     @PostMapping("/api/common/file/upload")
+    @RequiresRoles(value = {"admin", "HR", "EMPLOYEE", "user"}, logical = Logical.OR)
     @Operation(summary = "文件上传", description = "此接口较为特殊，参数都通过表单方式提交，而非JSON")
     public ApiRest<UploadRespDTO> upload(@ModelAttribute UploadReqDTO reqDTO) {
         // 上传并返回URL

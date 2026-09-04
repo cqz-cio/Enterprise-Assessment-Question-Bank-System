@@ -4,6 +4,7 @@ export type ButtonType = {
   permission?: string[]
   router?: string
   action?: string
+  label?: string
 }
 
 // 表格列属性
@@ -17,6 +18,7 @@ export type TableQueryType = {
 export type BatchType = {
   key: string
   label: string
+  permission?: string[]
   params?: any
   action?: string // 操作请求提交URL
   idsKey?: string // 数据ids的JSON名称

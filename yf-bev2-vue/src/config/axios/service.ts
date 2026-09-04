@@ -35,6 +35,11 @@ axiosInstance.interceptors.request.use((res: InternalAxiosRequestConfig) => {
 axiosInstance.interceptors.response.use(
   (res: AxiosResponse) => {
     console.log('响应结果', res)
+    if (res.config.responseType === 'blob') {
+      const url = res.config.url || ''
+      abortControllerMap.delete(url)
+      return res
+    }
 
     const resCode = res.data.code
 
@@ -62,6 +67,7 @@ axiosInstance.interceptors.response.use(
   },
   (err: any) => {
     ElMessage.error('糟糕，服务器开小差了！' + err)
+    return Promise.reject(err)
   }
 )
 

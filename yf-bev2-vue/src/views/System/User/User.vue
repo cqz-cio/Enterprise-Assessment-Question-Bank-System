@@ -142,12 +142,14 @@ let options = ref<OptionsType>({
     {
       key: 'state',
       label: '启用',
+      permission: ['sys:user:state'],
       params: { state: 0 },
       action: '/api/sys/user/state'
     },
     {
       key: 'state',
       label: '禁用',
+      permission: ['sys:user:state'],
       params: { state: 1 },
       action: '/api/sys/user/state'
     }

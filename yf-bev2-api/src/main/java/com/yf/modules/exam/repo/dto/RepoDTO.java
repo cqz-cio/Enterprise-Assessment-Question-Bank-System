@@ -34,6 +34,24 @@ public class RepoDTO implements Serializable {
     @Schema(description = "分类ID")
     private String catId;
 
+    @Dict(dictTable = "el_sys_depart", dicText = "dept_name", dicCode = "id")
+    @Schema(description = "部门ID")
+    private String departId;
+
+    @Dict(dictTable = "el_position", dicText = "name", dicCode = "id")
+    @Schema(description = "岗位ID")
+    private String positionId;
+
+    @Schema(description = "考核场景：INTERVIEW/REGULARIZATION/PROMOTION")
+    private String sceneType;
+
+    @Dict(dictTable = "el_position_grade", dicText = "name", dicCode = "id")
+    @Schema(description = "晋升目标职级ID，可选")
+    private String targetGradeId;
+
+    @Schema(description = "启用状态：1启用，0停用")
+    private Integer status;
+
     @Schema(description = "题库备注")
     private String remark;
 

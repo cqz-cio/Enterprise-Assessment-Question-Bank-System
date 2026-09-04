@@ -71,6 +71,7 @@ public class SysDicValueController extends BaseController {
      * @return
      */
     @Operation(summary = "分类树列表")
+    @RequiresPermissions("sys:dict:paging")
     @PostMapping("/tree")
     public ApiRest<List<DicValueTreeDTO>> tree(@RequestBody SysDicValueReqDTO reqDTO) {
         List<DicValueTreeDTO> dtoList = baseService.findTree(reqDTO);

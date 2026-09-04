@@ -6,6 +6,7 @@ import com.yf.system.modules.config.service.CfgSwitchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +25,7 @@ import java.util.Map;
 @Tag(name = "功能配置")
 @RestController
 @RequiredArgsConstructor
+@RequiresRoles("admin")
 @RequestMapping("/api/sys/config/switch")
 public class CfgSwitchController extends BaseController {
 

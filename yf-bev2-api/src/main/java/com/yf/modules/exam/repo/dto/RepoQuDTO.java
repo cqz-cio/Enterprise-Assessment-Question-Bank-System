@@ -35,6 +35,9 @@ public class RepoQuDTO implements Serializable {
     @Schema(description = "所属章节")
     private String chapterId;
 
+    @Schema(description = "外部题目编号")
+    private String externalCode;
+
     @Dict(dicCode = "qu_type")
     @Schema(description = "题目类型")
     private String quType;
@@ -48,6 +51,18 @@ public class RepoQuDTO implements Serializable {
 
     @Schema(description = "整题解析")
     private String analysis;
+
+    @Schema(description = "启用状态：1 启用，0 停用")
+    private Integer status;
+
+    @Schema(description = "简答题参考答案")
+    private String referenceAnswer;
+
+    @Schema(description = "简答题评分要点")
+    private String gradingCriteria;
+
+    @Schema(description = "题目标签")
+    private String tags;
 
     @Schema(description = "创建时间")
     private Date createTime;
