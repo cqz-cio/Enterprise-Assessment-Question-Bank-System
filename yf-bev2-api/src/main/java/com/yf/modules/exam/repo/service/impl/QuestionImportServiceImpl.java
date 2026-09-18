@@ -6,6 +6,8 @@ import com.yf.base.api.exception.ServiceException;
 import com.yf.modules.exam.repo.dto.RepoQuAnswerDTO;
 import com.yf.modules.exam.repo.dto.request.RepoQuDetailDTO;
 import com.yf.modules.exam.repo.dto.response.QuestionImportIssueDTO;
+import com.yf.modules.exam.repo.dto.response.WordQuestionPreviewDTO;
+import java.util.function.Supplier;
 import com.yf.modules.exam.repo.dto.response.QuestionImportPreviewRespDTO;
 import com.yf.modules.exam.repo.dto.response.QuestionImportResultRespDTO;
 import com.yf.modules.exam.repo.entity.Repo;
@@ -30,6 +32,7 @@ import org.springframework.web.util.HtmlUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -72,6 +75,7 @@ public class QuestionImportServiceImpl implements QuestionImportService {
     private final RepoQuService repoQuService;
     private final RedisService redisService;
     private final QuestionImportWorkbookService workbookService;
+    private final WordQuestionParser wordParser = new WordQuestionParser();
 
     @Override
     public QuestionImportPreviewRespDTO validate(String repoId, MultipartFile file) {
@@ -81,12 +85,81 @@ public class QuestionImportServiceImpl implements QuestionImportService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public QuestionImportResultRespDTO importQuestions(String repoId, MultipartFile file) {
+        return persistValidated(repoId, () -> parseAndValidate(repoId, file));
+    }
+
+    @Override
+    public QuestionImportPreviewRespDTO validateWord(String repoId, MultipartFile file, String defaultDifficulty) {
+        return parseAndValidateWord(repoId, file, defaultDifficulty).toPreview();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public QuestionImportResultRespDTO importWord(String repoId, MultipartFile file, String defaultDifficulty) {
+        return persistValidated(repoId, () -> parseAndValidateWord(repoId, file, defaultDifficulty));
+    }
+
+    @Override
+    public void writeWordTemplate(HttpServletResponse response) throws IOException {
+        new WordQuestionTemplateWriter().write(response);
+    }
+
+    @Override
+    public void writeWordErrorReport(String repoId, MultipartFile file, String defaultDifficulty,
+                                     HttpServletResponse response) throws IOException {
+        ValidationBundle bundle = parseAndValidateWord(repoId, file, defaultDifficulty);
+        if (bundle.issues.isEmpty()) throw new ServiceException("当前文件没有问题题目，无需下载报告");
+        workbookService.writeErrorReport(response, bundle.toErrorReportRows());
+    }
+
+    private ValidationBundle parseAndValidateWord(String repoId, MultipartFile file, String defaultDifficulty) {
+        validateTargetRepo(repoId);
+        if (file == null || file.isEmpty()) throw new ServiceException("请选择需要导入的 Word 文件");
+        if (file.getSize() > MAX_FILE_SIZE) throw new ServiceException("Word 文件不能超过 10 MB");
+        if (!StringUtils.defaultString(file.getOriginalFilename()).toLowerCase(Locale.ROOT).endsWith(".docx")) {
+            throw new ServiceException("仅支持 .docx 格式，不支持旧版 .doc 文件");
+        }
+        if (StringUtils.isNotBlank(defaultDifficulty) && !Set.of("简单", "一般", "较难", "极难").contains(defaultDifficulty)) {
+            throw new ServiceException("统一难度仅支持简单、一般、较难和极难");
+        }
+        ValidationBundle bundle = new ValidationBundle();
+        bundle.templateVersion = "WORD_QUESTION_IMPORT_V1";
+        Set<String> duplicateKeys = loadExistingDuplicateKeys(repoId);
+        try (InputStream input = file.getInputStream()) {
+            for (WordQuestionParser.ParsedQuestion parsed : wordParser.parse(input, defaultDifficulty)) {
+                QuestionRow row = new QuestionRow(parsed.paragraph(), parsed.values());
+                bundle.totalCount++;
+                bundle.rowsByNumber.put(row.rowNumber, row);
+                for (WordQuestionParser.Issue issue : parsed.issues()) {
+                    bundle.addIssue(row, issue.field(), issue.message(), "ERROR");
+                }
+                if (StringUtils.isBlank(row.difficultyLabel)) {
+                    bundle.addIssue(row, "难度", "未填写难度，请返回上传步骤统一设置或修改 Word", "ERROR");
+                }
+                acceptValidatedRow(row, bundle, duplicateKeys);
+            }
+        } catch (IOException e) {
+            throw new ServiceException("Word 读取失败，请重新上传");
+        }
+        return bundle;
+    }
+
+    private QuestionImportResultRespDTO persistValidated(String repoId, Supplier<ValidationBundle> validate) {
         String lockKey = "repo:qu:import:" + repoId;
         if (!redisService.tryLock(lockKey, 60_000L, 1, 100L)) {
             throw new ServiceException("当前题库正在执行导入，请稍后重试");
         }
         try {
-            ValidationBundle bundle = parseAndValidate(repoId, file);
+            ValidationBundle bundle = validate.get();
+            String errorReport = null;
+            if (!bundle.issues.isEmpty()) {
+                try {
+                    errorReport = Base64.getEncoder().encodeToString(
+                            workbookService.createErrorReport(bundle.toErrorReportRows()));
+                } catch (IOException ex) {
+                    throw new ServiceException("错误报告生成失败，本次未导入，请重试");
+                }
+            }
             for (QuestionRow row : bundle.validRows) {
                 repoQuService.save(toQuestion(row, repoId));
             }
@@ -95,8 +168,9 @@ public class QuestionImportServiceImpl implements QuestionImportService {
                     .successCount(bundle.validRows.size())
                     .duplicateCount(bundle.duplicateRows.size())
                     .failureCount(bundle.failedRows.size())
-                    .templateVersion(TEMPLATE_VERSION)
+                    .templateVersion(bundle.templateVersion)
                     .issues(bundle.issues)
+                    .errorReportBase64(errorReport)
                     .build();
         } finally {
             redisService.unlock(lockKey);
@@ -146,24 +220,28 @@ public class QuestionImportServiceImpl implements QuestionImportService {
                 QuestionRow row = readRow(excelRow, formatter);
                 bundle.rowsByNumber.put(row.rowNumber, row);
                 validateUnsupportedCells(excelRow, row, bundle);
-                validateQuestionRow(row, bundle);
-                if (bundle.failedRows.contains(row.rowNumber)) {
-                    continue;
-                }
-                String duplicateKey = row.questionType + "|" + normalizeQuestionText(row.content);
-                if (duplicateKeys.contains(duplicateKey)) {
-                    bundle.addIssue(row, "题干", "同一题库中已存在相同题型和题干，已跳过", "DUPLICATE");
-                    continue;
-                }
-                duplicateKeys.add(duplicateKey);
-                bundle.validRows.add(row);
+                acceptValidatedRow(row, bundle, duplicateKeys);
             }
         } catch (ServiceException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new ServiceException("Excel 文件读取失败，请确认文件未加密、未损坏且使用标准模板");
         }
+        if (bundle.totalCount == 0) {
+            throw new ServiceException("“试题数据”工作表没有题目，请填写后再上传");
+        }
         return bundle;
+    }
+
+    private void acceptValidatedRow(QuestionRow row, ValidationBundle bundle, Set<String> duplicateKeys) {
+        validateQuestionRow(row, bundle);
+        if (bundle.failedRows.contains(row.rowNumber)) return;
+        String key = row.questionType + "|" + normalizeQuestionText(row.content);
+        if (!duplicateKeys.add(key)) {
+            bundle.addIssue(row, "题干", "同一题库或文件中已存在相同题型和题干，已跳过", "DUPLICATE");
+        } else {
+            bundle.validRows.add(row);
+        }
     }
 
     private void validateTargetRepo(String repoId) {
@@ -474,6 +552,7 @@ public class QuestionImportServiceImpl implements QuestionImportService {
 
     private static class ValidationBundle {
         private int totalCount;
+        private String templateVersion = TEMPLATE_VERSION;
         private final List<QuestionRow> validRows = new ArrayList<>();
         private final List<QuestionImportIssueDTO> issues = new ArrayList<>();
         private final Set<Integer> failedRows = new HashSet<>();
@@ -497,8 +576,16 @@ public class QuestionImportServiceImpl implements QuestionImportService {
                     .thenComparing(QuestionImportIssueDTO::getIssueType));
             return QuestionImportPreviewRespDTO.builder().totalCount(totalCount)
                     .validCount(validRows.size()).duplicateCount(duplicateRows.size())
-                    .failureCount(failedRows.size()).templateVersion(TEMPLATE_VERSION)
-                    .issues(issues).build();
+                    .failureCount(failedRows.size()).templateVersion(templateVersion)
+                    .issues(issues)
+                    .questions(templateVersion.startsWith("WORD_") ? rowsByNumber.values().stream().map(row ->
+                            WordQuestionPreviewDTO.builder().paragraph(row.rowNumber).questionCode(row.externalCode)
+                                    .questionType(row.questionTypeLabel).content(row.content).options(row.options)
+                                    .answer(row.correctAnswer).difficulty(row.difficultyLabel).explanation(row.explanation)
+                                    .gradingCriteria(row.gradingCriteria)
+                                    .status(failedRows.contains(row.rowNumber) ? "ERROR"
+                                            : duplicateRows.contains(row.rowNumber) ? "DUPLICATE" : "VALID").build())
+                            .toList() : null).build();
         }
 
         private List<List<String>> toErrorReportRows() {
@@ -518,6 +605,7 @@ public class QuestionImportServiceImpl implements QuestionImportService {
                         .distinct().collect(Collectors.joining("、")));
                 values.add(rowIssues.stream().map(QuestionImportIssueDTO::getMessage)
                         .distinct().collect(Collectors.joining("；")));
+                values.add(String.valueOf(rowNumber));
                 rows.add(values);
             });
             return rows;

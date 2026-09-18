@@ -22,4 +22,5 @@ public class QuestionImportPreviewRespDTO implements Serializable {
     private Integer failureCount;
     private String templateVersion;
     private List<QuestionImportIssueDTO> issues;
+    private List<WordQuestionPreviewDTO> questions;
 }

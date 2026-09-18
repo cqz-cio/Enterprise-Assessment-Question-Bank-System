@@ -23,4 +23,5 @@ public class PaperQuFillRespDTO implements Serializable {
 
     @Schema(description = "试卷ID")
     private Boolean filled;
+    private java.util.Date savedAt;
 }

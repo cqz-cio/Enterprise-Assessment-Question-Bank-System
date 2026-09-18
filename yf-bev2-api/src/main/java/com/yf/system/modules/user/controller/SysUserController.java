@@ -62,7 +62,7 @@ public class SysUserController extends BaseController {
      */
     @Operation(summary = "账号密码登录")
     @PostMapping(value = "/login")
-    public ApiRest<SysUserLoginDTO> login(@RequestBody SysUserLoginReqDTO reqDTO) {
+    public ApiRest<SysUserLoginDTO> login(@Valid @RequestBody SysUserLoginReqDTO reqDTO) {
         SysUserLoginDTO respDTO = baseService.login(reqDTO);
         return super.success(respDTO);
     }
@@ -90,6 +90,8 @@ public class SysUserController extends BaseController {
     @PostMapping("/info")
     public ApiRest<?> info(HttpServletRequest request) {
         SysUserLoginDTO respDTO = baseService.token(request.getHeader(Constant.TOKEN));
+        // 会话快照可能早于权限迁移；身份验证后重新读取当前授权。
+        respDTO.setPermissions(sysUserRoleService.findUserPermission(respDTO.getId()));
         return success(respDTO);
     }
 

@@ -22,4 +22,6 @@ public class QuestionImportResultRespDTO implements Serializable {
     private Integer failureCount;
     private String templateVersion;
     private List<QuestionImportIssueDTO> issues;
+    @Schema(description = "本次导入错误报告 XLSX 的 Base64，无问题行时为空")
+    private String errorReportBase64;
 }

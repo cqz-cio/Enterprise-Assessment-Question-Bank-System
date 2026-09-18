@@ -108,8 +108,7 @@ public class ExamController extends BaseController {
     @RequiresPermissions("exam:client:detail")
     @PostMapping("/detail-for-exam")
     public ApiRest<ExamDetailDTO> detailForExam(@RequestBody BaseIdReqDTO reqDTO) {
-        ExamDetailDTO dto = examService.detail(reqDTO.getId());
-        return super.success(dto);
+        throw new com.yf.base.api.exception.ServiceException("模板考试入口已停用，请从本人考核分配进入！");
     }
 
     /**
@@ -122,10 +121,7 @@ public class ExamController extends BaseController {
     @RequiresPermissions("exam:client:list")
     @PostMapping("/client-paging")
     public ApiRest<IPage<ExamDTO>> clientPaging(@RequestBody PagingReqDTO<ExamListReqDTO> reqDTO) {
-
-        //分页查询并转换
-        IPage<ExamDTO> page = examService.paging(reqDTO);
-
-        return super.success(page);
+        // Employee assignment portal is delivered separately; never expose all templates here.
+        return super.success(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<ExamDTO>());
     }
 }

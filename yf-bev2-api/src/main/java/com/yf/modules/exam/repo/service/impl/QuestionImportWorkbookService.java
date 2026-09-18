@@ -22,6 +22,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,22 +39,30 @@ public class QuestionImportWorkbookService {
     }
 
     public void writeErrorReport(HttpServletResponse response, List<List<String>> rows) throws IOException {
+        byte[] report = createErrorReport(rows);
+        prepareDownload(response, "试题导入错误报告.xlsx");
+        response.getOutputStream().write(report);
+    }
+
+    public byte[] createErrorReport(List<List<String>> rows) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             CellStyle header = createHeaderStyle(workbook);
             CellStyle body = createBodyStyle(workbook);
             Sheet sheet = workbook.createSheet("错误数据");
             List<String> headers = new ArrayList<>(QuestionImportServiceImpl.HEADERS);
-            headers.addAll(List.of("处理结果", "错误字段", "错误原因"));
+            headers.addAll(List.of("处理结果", "错误字段", "错误原因", "原始行号/段落号"));
             writeHeader(sheet, headers, header);
             writeRows(sheet, 1, rows, body);
             setQuestionColumns(sheet);
             sheet.setColumnWidth(14, 16 * 256);
             sheet.setColumnWidth(15, 24 * 256);
             sheet.setColumnWidth(16, 60 * 256);
+            sheet.setColumnWidth(17, 12 * 256);
             sheet.createFreezePane(0, 1);
             sheet.setAutoFilter(new CellRangeAddress(0, Math.max(1, rows.size()), 0, headers.size() - 1));
-            prepareDownload(response, "试题导入错误报告.xlsx");
-            workbook.write(response.getOutputStream());
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            workbook.write(output);
+            return output.toByteArray();
         }
     }
 
@@ -164,7 +173,8 @@ public class QuestionImportWorkbookService {
             List<String> values = rows.get(rowOffset);
             for (int column = 0; column < values.size(); column++) {
                 Cell cell = row.createCell(column, CellType.STRING);
-                cell.setCellValue(values.get(column));
+                String value = values.get(column);
+                cell.setCellValue(value.length() > 32767 ? value.substring(0, 32740) + "…（超长内容已截断，请查看源文件）" : value);
                 cell.setCellStyle(style);
             }
         }

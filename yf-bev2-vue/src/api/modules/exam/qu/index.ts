@@ -45,3 +45,28 @@ export const downloadImportErrorReportApi = (data: FormData) => {
     responseType: 'blob'
   })
 }
+
+export const validateWordImportApi = (data: FormData) =>
+  request.post({
+    url: '/api/exam/repo/qu/import-word/validate',
+    data,
+    headersType: 'multipart/form-data'
+  })
+export const importWordQuestionsApi = (data: FormData) =>
+  request.post({
+    url: '/api/exam/repo/qu/import-word',
+    data,
+    headersType: 'multipart/form-data'
+  })
+export const downloadWordTemplateApi = () =>
+  request.get({
+    url: '/api/exam/repo/qu/import-word-template',
+    responseType: 'blob'
+  })
+export const downloadWordErrorReportApi = (data: FormData) =>
+  request.post({
+    url: '/api/exam/repo/qu/import-word-error-report',
+    data,
+    headersType: 'multipart/form-data',
+    responseType: 'blob'
+  })

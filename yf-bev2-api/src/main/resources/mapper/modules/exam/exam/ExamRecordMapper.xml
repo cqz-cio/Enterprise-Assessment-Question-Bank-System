@@ -18,6 +18,7 @@
         SELECT rc.exam_id, rc.passed
         FROM el_exam_record rc
         INNER JOIN el_exam ex ON rc.exam_id = ex.id
+        INNER JOIN el_paper p ON p.id = rc.paper_id AND p.grading_state = 'NOT_REQUIRED'
         WHERE rc.user_id = #{query.userId}
         <if test="query!=null">
             <if test="query.title!=null and query.title!=''">
@@ -32,6 +33,7 @@
 
     <select id="paging" resultMap="BaseResultMap">
         SELECT rc.* FROM el_exam_record rc INNER JOIN el_sys_user uc ON rc.user_id=uc.id INNER JOIN el_exam ee ON ee.id=rc.exam_id
+        INNER JOIN el_paper p ON p.id = rc.paper_id AND p.grading_state = 'NOT_REQUIRED'
         <where>
             <if test="query!=null">
                 <if test="query.examId!=null and query.examId!=''">

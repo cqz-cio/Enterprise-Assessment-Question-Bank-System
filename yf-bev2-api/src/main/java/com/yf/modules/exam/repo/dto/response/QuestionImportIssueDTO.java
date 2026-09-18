@@ -15,7 +15,7 @@ public class QuestionImportIssueDTO implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    @Schema(description = "Excel 原始行号")
+    @Schema(description = "Excel 原始行号或 Word 题目起始段落号")
     private Integer rowNumber;
 
     @Schema(description = "题目编号")

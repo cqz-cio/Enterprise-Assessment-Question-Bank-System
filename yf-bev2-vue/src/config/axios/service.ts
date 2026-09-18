@@ -34,7 +34,6 @@ axiosInstance.interceptors.request.use((res: InternalAxiosRequestConfig) => {
 
 axiosInstance.interceptors.response.use(
   (res: AxiosResponse) => {
-    console.log('响应结果', res)
     if (res.config.responseType === 'blob') {
       const url = res.config.url || ''
       abortControllerMap.delete(url)
@@ -66,7 +65,11 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(new Error(resMsg))
   },
   (err: any) => {
-    ElMessage.error('糟糕，服务器开小差了！' + err)
+    const status = err.response?.status
+    const message = [429, 503].includes(status)
+      ? err.response?.data?.msg || '验证服务繁忙，请稍后重试'
+      : '请求失败，请检查网络或稍后重试'
+    ElMessage.error(message)
     return Promise.reject(err)
   }
 )

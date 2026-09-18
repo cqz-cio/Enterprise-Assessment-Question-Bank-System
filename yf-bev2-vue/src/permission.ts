@@ -1,4 +1,5 @@
 import router from './router'
+import { sessionInfoApi } from '@/api/login'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useStorage } from '@/hooks/web/useStorage'
 import type { RouteRecordRaw } from 'vue-router'
@@ -47,6 +48,16 @@ router.beforeEach(async (to, from, next) => {
       }
 
       next()
+      return
+    }
+
+    // 刷新页面时同步服务端权限，再挂载带权限指令的页面。
+    try {
+      const session = await sessionInfoApi()
+      userStore.setUserInfo(session.data)
+      await userStore.generateRoutes()
+    } catch {
+      next(false)
       return
     }
 

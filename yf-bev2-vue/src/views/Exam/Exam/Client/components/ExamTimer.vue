@@ -12,9 +12,10 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { CountDown } from '@/components/CountDown'
 import { realTimeStateApi } from '@/api/modules/exam/paper'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const { push } = useRouter()
+const route = useRoute()
 
 // 组件参数
 const props = defineProps({
@@ -28,7 +29,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['overdue', 'warn'])
+const emit = defineEmits(['overdue', 'warn', 'handed'])
 const seconds = ref(999999999)
 
 // 提前告警
@@ -47,9 +48,11 @@ const executeTask = () => {
   realTimeStateApi({ id: props.paperId }).then((res) => {
     const data = res.data
     if (data.handed) {
+      clearTimer()
+      emit('handed')
       ElMessage.error('当前试卷已被提交、无法继续答题！')
       setTimeout(() => {
-        if (props.assignmentId) {
+        if (route.name === 'CandidateExamEnter' && props.assignmentId) {
           push({ name: 'CandidateExamResult', query: { assignmentId: props.assignmentId } })
         } else {
           push({ name: 'ExamClientResult', query: { id: props.paperId } })
@@ -72,7 +75,7 @@ const initTimer = () => {
   // 设置每分钟(60000毫秒)执行的定时器
   timer.value = setInterval(() => {
     executeTask()
-  }, 60000)
+  }, 15000)
 }
 
 // 清理定时器

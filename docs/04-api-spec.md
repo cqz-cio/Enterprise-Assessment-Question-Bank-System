@@ -495,7 +495,7 @@ Auth: paper owner
 }
 ```
 
-建议后续改用 `paperQuId`，避免同一试卷出现重复来源题目时歧义。
+已实现（D-031）：`paperId` 和 `quId` 为必填字符串，最长 64 字符；`answerText` 必填且最多 5000 字符，空字符串用于清空答案。返回 `filled` 和 `savedAt`。沿用试卷/来源题目组合定位，校验当前用户、唯一试卷、分配状态和截止时间；提交后拒绝修改。不会返回评分键或执行主观题自动判分。
 
 ### 6.4 交卷
 
@@ -553,7 +553,9 @@ POST /api/exam/grading/paging
 Permission: exam:grading:view
 ```
 
-筛选：姓名、岗位、场景、批次、考核名称、提交时间、阅卷人和阅卷状态。
+已实现的平铺请求：`current`（默认 1）、`size`（默认 10，最大 100）、`keyword`（姓名/考核名称）、`positionId`、`departId`、`sceneType`、`batchNo`、`examId`、`graderId`、`submittedFrom`、`submittedTo`、`state`（PENDING/GRADED，默认 PENDING）。时间格式 `yyyy-MM-dd HH:mm:ss`，Asia/Shanghai。返回 `records/total/current/size`。前端提供姓名/考核名称、岗位、场景、批次、提交时间及状态筛选；其余为 API 筛选能力。
+
+`POST /api/exam/grading/positions` 使用同一查看权限，返回已有待阅/已阅试卷关联岗位的 `id/name`，无需额外岗位管理权限。
 
 ### 7.2 获取阅卷详情
 
@@ -562,20 +564,21 @@ POST /api/exam/grading/detail
 Permission: exam:grading:view
 ```
 
-响应包含题干快照、参考答案快照、评分标准快照、答题内容、题目满分、当前得分和评语。
+请求 `{"id":"paper-id"}`。响应包含 `version`、考核与考生信息、客观分/主观分/通过线、`shortCount/gradedCount`、`questions`（题干/参考答案/评分要点快照、文本答案、满分、当前得分、评语、阅卷人和时间）及 `logs`（GRADE/REGRADE/FINALIZE 操作和评分/评语前后值）。只允许查看已提交的待阅/已阅试卷。
 
 ### 7.3 保存单题评分
 
 ```http
 POST /api/exam/grading/question/save
-Permission: exam:grading:score
+Permission: exam:grading:view AND exam:grading:score
 ```
 
 ```json
 {
   "paperQuId": "paper-question-id",
   "score": 12.5,
-  "comment": "业务判断正确，但风险控制措施不够完整"
+  "comment": "业务判断正确，但风险控制措施不够完整",
+  "expectedVersion": 0
 }
 ```
 
@@ -583,14 +586,18 @@ Permission: exam:grading:score
 
 ```http
 POST /api/exam/grading/finalize
-Permission: exam:grading:finalize
+Permission: exam:grading:view AND exam:grading:finalize
 ```
 
 ```json
-{"paperId": "paper-id"}
+{"paperId": "paper-id", "expectedVersion": 2}
 ```
 
-只有全部简答题均已评分时允许完成；完成后计算最终总分、通过状态，更新考核分配和考试记录，并自动向考生开放“是否通过”结果。
+只有全部简答题均已评分时允许完成；零分也必须明确保存。评分范围为 0 至题目满分，最多两位小数，评语选填且最长 2000 字符。保存及完成响应为最新完整阅卷详情。不同内容的过期版本写入被拒绝；相同评分重试不重复记日志；重复完成不重复结算。
+
+完成后在同一事务内计算最终总分/通过状态，将试卷 `gradingState` 更新为 GRADED、分配更新为 COMPLETED，写考试记录和审计日志，并自动向考生开放“是否通过”。完成后只读；停用分配、未交卷和 LEGACY_INCOMPLETE 试卷不能评分或完成。默认只给管理员阅卷权限，HR 不自动获得评分权限。
+
+候选人 `POST /api/exam/assignment/candidate/verify` 对 PENDING_REVIEW/COMPLETED 分配允许在原有效期内认证并返回结果入口，必须关联本人已提交试卷；不会恢复作答状态。仍禁止开新卷、重考或改答，停用/过期拒绝认证（D-031）。
 
 ## 8. 成绩查询和导出
 
@@ -652,3 +659,71 @@ Permission: exam:report:export
 - Swagger/Knife4j 注释。
 - 正常、越权、重复提交和过期场景测试。
 - 本文档同步更新。
+
+### 试题导入补充（2026-09-07）
+
+确认导入响应新增可选 `errorReportBase64`，包含本次导入时生成的 XLSX 问题行报告；无问题行时为空。完成页直接下载该报告，不再次校验原文件，避免成功行被误报为重复。报告追加原始 Excel 行号。空数据表拒绝导入；判断题答案仅接受“正确”和“错误”。现有预校验报告接口保持不变。
+
+### 会话权限同步（2026-09-07）
+
+`POST /api/sys/user/info` 在验证 token、当前会话和账号状态后，按该会话用户 ID 读取最新权限列表，不再返回登录时的旧权限快照。前端刷新后在首次挂载业务页面前调用此接口同步按钮权限；接口不接受客户端指定权限所属用户，不签发新 token。
+
+### Word 题目导入（2026-09-07）
+
+- `GET /api/exam/repo/qu/import-word-template`：下载可直接解析的四题型 DOCX 示例模板，使用时需替换示例题。
+- `POST /api/exam/repo/qu/import-word/validate`：预校验，返回通用计数和 issues，另含 `questions` 列表（paragraph、questionCode、questionType、content、options、answer、difficulty、explanation、gradingCriteria、status），供管理人员逐题核对。
+- `POST /api/exam/repo/qu/import-word`：重新校验并复用题库锁和事务入库；返回成功/重复/失败数以及本次 XLSX 问题报告 `errorReportBase64`。
+- `POST /api/exam/repo/qu/import-word-error-report`：下载预校验问题报告，XLSX 格式。
+- 上述接口统一要求 `repo:qu:import`；POST 使用 multipart，字段 `repoId`、`file`，可选 `defaultDifficulty`（简单/一般/较难/极难，仅补充文档空难度）。
+- `templateVersion=WORD_QUESTION_IMPORT_V1`；issues.rowNumber 表示题目起始段落号，解析问题的 message 另含具体问题段落及必要原文摘要。题目预览只向具备导入权限的管理端返回。
+- `.docx`、10MB、1000 题；纯文字段落编号、选项和字段规则详见 D-028。文件损坏/加密、不支持内容或边界歧义返回业务错误，预校验不写库；可隔离的题目字段错误允许其余正确题入库。
+
+### P0 安全修复契约（D-029，2026-09-17）
+
+- `POST /api/exam/paper/paper/create`、`/pre-check`：保留原权限校验，统一返回旧入口已停用错误，不能再通过 examId 生成试卷。
+- `POST /api/exam/exam/exam/detail-for-exam`：旧模板入口停用；`/client-paging` 返回空页，不再列出任意管理模板。员工分配门户仍待 P1，本次不新增员工发放接口。
+- `POST /api/exam/paper/paper/create-by-assignment`：继续以当前用户 + 分配 ID 开始/恢复，已交卷或试卷时间已到期不能恢复或重考。
+- `POST /api/exam/exam/exam/save`：只允许题量大于零的客观题组卷规则；零题量简答题规则可保留。拒绝空卷、负题量、非正分值、重复题型规则；服务端计算总分并校验及格分范围。
+- `POST /api/exam/paper/qu/fill-answer`：事务内锁定本人分配与试卷；只接受该题的合法、无重复选项 ID，单选/判断最多一个，空数组表示清空答案；null 数组、主观题、无正确答案配置均拒绝。
+- `/detail-for-answer` 读取快照，只返回作答所需内容，不映射解析、标准答案或得分字段；管理端 `/full-detail` 使用快照内容和原有评分键，包含管理用 analysis。
+- `/hand` 幂等；主动交卷遵循快照最低作答时间，到期交卷不受其限制。历史主观题关闭作答后处于待阅卷，不返回最终通过状态。
+- `/paper/detail` 增加 `resultAvailable`；仅已交卷且不待阅卷时返回 passed，否则 passed 为空/省略。员工结果组件处理处理中状态，避免将 null 误显示为未通过。
+- `/assignment/my-result` 继续只返回 resultAvailable / passed，并复核试卷与当前分配、用户一致；历史主观题不发布结果。成绩汇总分页排除待阅卷试卷。
+- 管理端试卷 DTO 增加 `gradingState`、`snapshotSource`；考生 DTO 不暴露这些管理字段。
+- 无新增匿名端点或权限授予。数据库迁移 V017 由 Flyway 执行。
+
+### P1 员工任务接口（D-030，2026-09-18，已实现）
+
+以下路径均以 `/api/exam/assignment` 为前缀，均为 POST，使用既有 token 会话及 ApiRest 封装。旧 `/client-paging` 继续为空，不能用于新门户。
+
+| 路径 | 权限 | 功能 |
+| --- | --- | --- |
+| `/employee/create` | `exam:assignment:employee:add` | 按显式名单批量发放 |
+| `/employee/options` | 同上 | 本部门审核通过且启用的员工分页，只返回 id/name/employeeNo/departName |
+| `/employee/templates` | 同上 | 本部门可选择的启用模板（D-031 后含简答题），不下放模板编辑权限 |
+| `/employee/paging` | `exam:assignment:employee:view` | 管理任务分页 |
+| `/employee/change-status` | `exam:assignment:employee:edit` | 停用或恢复员工任务 |
+| `/employee/result-detail` | `exam:assignment:employee:result` | 已完成任务的管理试卷详情 |
+| `/my-paging` | `exam:assignment:my:view` | 当前登录员工的任务及状态计数 |
+
+创建请求：`{examId,userIds,batchNo,validFrom?,expireAt?}`。userIds 为 1–500 个非空 ID，服务端去重；批次去除首尾空格后非空，最多 64 字符。日期格式 `yyyy-MM-dd HH:mm:ss`，Asia/Shanghai；省略则当前开始、14 天截止，截止必须晚于开始和当前时间。所有用户必须为模板部门的正常 EMPLOYEE 且非 CANDIDATE；校验模板、岗位部门关联、目标职级、题库、客观题规则、可用题量和及格分后事务写入。返回 `{created,existing,assignmentIds}`；重复自然键复用原任务，不更新日期、不恢复状态、不重建试卷。无效成员整批失败。
+
+查询请求使用**平铺对象**：`{current:1,size:10,keyword?,departId?,positionId?,sceneType?,batchNo?,status?}`，不是原 DataTable 的 params 包装。current 最大 100000，size 为 1–500；所有 SQL 值使用绑定参数，不接收自定义排序。options 要求部门，支持姓名/工号 keyword；templates 要求部门，可按岗位/场景筛选，返回 id/title/positionId/positionName/sceneType/totalTime/questionCount。
+
+分页返回 `{records,total,current,size,counts}`，counts 为 `{status,total}[]`，按当前其他筛选条件统计但不受状态筛选影响。管理 keyword 查姓名/工号，本人 keyword 查考核标题。本人范围由会话确定，忽略请求 userId。状态包括原状态及派生 UPCOMING、SETTLING；TODO 筛选 ASSIGNED/UPCOMING，CLOSED 筛选 EXPIRED/DISABLED。
+
+本人行只返回 id、examTitle、batchNo、departName、positionName、sceneType、totalTime、validFrom、expireAt、paperDeadline、paperId、disabledReason、status、passed；仅已完成、交卷且非待阅卷时提供 passed。管理行额外提供 subjectName、employeeNo。列表均不返回分数、题目答案、解析或考核码；管理完整详情走独立权限接口。
+
+状态请求 `{id,action:'DISABLE'|'ENABLE',reason?}`；停用原因必填且不超过 500 字，恢复要求原任务仍有效且原卷未交卷/未截止，不能重置倒计时。不会注销员工会话。详情请求 `{id}`，只允许 EMPLOYEE 分配且复核试卷绑定/所有者及最终完成状态。
+
+开考、续考、交卷和本人最终结果复用现有 `/paper/create-by-assignment`、答题/交卷和 `/assignment/my-result` 接口；前端按员工/候选人路由分别返回各自结果入口。
+
+### 认证安全契约（D-032，2026-09-18）
+
+- `POST /api/sys/user/login`：`userName`、`password`、`captchaKey`、`captchaValue` 全部必填，最大长度分别为 255、1024、标准 UUID、16。省略验证码不再兼容；用户名/密码错误统一提示。正常返回沿用原 token 契约。
+- `GET /api/common/captcha/gen?key=<UUID>`：返回 PNG，验证码存储 5 分钟，同一 key 不覆盖；先成功存储再输出图片。验证使用 Redis 原子 GETDEL，错误或成功均消费；重新尝试必须取新 key 和新图。大小写不敏感，验证码值去除首尾空格。
+- 注册继续使用验证码和审核机制；登录、注册失败后前端清空旧验证码并重新取图。
+- 所有上述入口及 `/api/exam/assignment/candidate/verify` 按实际连接源 IP 限制，校验请求体前计数；伪造 Forwarded/X-Forwarded-For 不改变来源。有效验证码之后，账号按数据库身份 ID 计数；候选人按考核码的 HMAC 查找值计数，不能通过换 IP 或姓名绕过码限制。
+- 固定 600 秒窗口：登录 IP 300、候选人认证 IP 300、注册 IP 60、取验证码 IP 600；账号/考核码各 10 次。账号/考核码认证成功清除自身窗口，IP 请求仍累计。限额包含当前尝试，第 11 次账号/码尝试拦截；被拦截不延长窗口。
+- 超限返回 **HTTP 429**，ApiRest 错误消息及 **Retry-After** 秒数（至少 1）；限流或验证码 Redis 操作失败返回 **HTTP 503** 和通用服务不可用消息。其余业务校验仍沿用 ApiRest 非零 code。
+- Redis 最低需支持 GETDEL（6.2+，本地 Compose 为 7）。本轮没有新增匿名业务接口、授权权限或数据库迁移。

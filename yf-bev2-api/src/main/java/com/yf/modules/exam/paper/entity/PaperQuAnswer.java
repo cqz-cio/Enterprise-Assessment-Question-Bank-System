@@ -42,6 +42,8 @@ public class PaperQuAnswer extends Model<PaperQuAnswer> {
     @TableField("answer_id")
     private String answerId;
 
+    private String contentSnapshot;
+
     /**
      * 题目ID
      */

@@ -1,11 +1,11 @@
 <template>
   <ContentWrap>
     <el-result
-      :icon="detail.passed ? 'success' : 'warning'"
-      :title="detail.passed ? '恭喜，考试通过了哟！' : '很遗憾，本次考试未及格！'"
+      :icon="(detail.resultAvailable === false || detail.passed == null) ? 'info' : detail.passed ? 'success' : 'warning'"
+      :title="(detail.resultAvailable === false || detail.passed == null) ? '结果处理中' : detail.passed ? '恭喜，考试通过了哟！' : '很遗憾，本次考试未及格！'"
     >
       <template #extra>
-        <el-button size="large" type="primary" @click="backExamList">返回考试列表</el-button>
+        <el-button size="large" type="primary" @click="backExamList">返回我的考核</el-button>
       </template>
     </el-result>
   </ContentWrap>

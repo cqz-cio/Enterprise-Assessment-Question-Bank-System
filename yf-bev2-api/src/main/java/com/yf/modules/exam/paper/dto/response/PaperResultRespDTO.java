@@ -11,13 +11,17 @@ public class PaperResultRespDTO {
     private String title;
     private Integer handState;
     private Boolean passed;
+    private boolean resultAvailable;
 
     public static PaperResultRespDTO from(PaperDTO paper) {
+        boolean available = Integer.valueOf(1).equals(paper.getHandState())
+                && !"PENDING".equals(paper.getGradingState()) && paper.getPassed() != null;
         return PaperResultRespDTO.builder()
                 .id(paper.getId())
                 .title(paper.getTitle())
                 .handState(paper.getHandState())
-                .passed(paper.getPassed())
+                .resultAvailable(available)
+                .passed(available ? paper.getPassed() : null)
                 .build();
     }
 }

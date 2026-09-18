@@ -313,3 +313,31 @@ yf-bev2-api/src/main/resources/db/migration/
 - 成绩导出必须受 HR 或管理员权限保护。
 - 日志中不得输出明文考核码、完整 token、密码或标准答案。
 - 候选人临时用户可以在保留成绩关联的前提下停用，不应直接物理删除。
+
+## 2026-09-17：V017 已实现的快照与结算字段
+
+- `el_paper.hand_min_snapshot`：建卷时最低作答分钟数，交卷不再读取可变模板。
+- `el_paper.grading_state`：当前实现 `NOT_REQUIRED` / `PENDING`；PENDING 不能作为最终结果发布。
+- `el_paper.snapshot_source`：`CREATED` 为建卷时快照，`LEGACY_BACKFILL` 为迁移时回填，`LEGACY_INCOMPLETE` 为原题/选项已缺失。
+- `el_paper.passed` 改为可空，待阅卷时为 NULL；历史主观题原分数保留用于后续核对，不作为最终结果。
+- `el_paper_qu` 增加 `content_snapshot`、`analysis_snapshot`、`reference_answer_snapshot`、`grading_criteria_snapshot`。
+- `el_paper_qu_answer.content_snapshot` 保存选项内容，既有 `is_right` 保存建卷时评分键，迁移不得用当前题库正确答案覆盖它。
+- 添加 `(hand_state, limit_time)` 索引用于逾期补偿；既有 `assignment_id` 唯一约束继续保证每条分配最多一张试卷。
+- 迁移文件：`V017__paper_snapshots_and_settlement_safety.sql`。本文早期 V006～V008 快照迁移名称属于历史规划，实际版本已用于其他业务，禁止照旧名重复创建。
+- 历史题库修改已发生的内容不可逆恢复；回填仅冻结当前可用内容，缺失保持 NULL 并标记，不回退到实时题库查询。
+
+## 2026-09-18：V018 员工任务门户
+
+- 复用 `el_exam_assignment`，员工分配的 `subject_type='EMPLOYEE'`，不创建内部账号，不生成考核码，两个 access_code 字段均为空。
+- 复用 V005 的 `uk_assignment_user_exam_batch(user_id,exam_id,batch_no)`；新接口强制非空批次。事务先锁模板，再按用户 ID 排序锁员工并校验，保证同模板并发发放幂等，失败整批回滚。重复键保留原有效期和原状态。
+- V018 新增 `(subject_type,user_id,create_time)` 索引及员工管理菜单、查看/发放/状态/结果权限和个人任务列表权限，不更改历史业务数据。
+- UPCOMING 和 SETTLING 为查询时派生展示状态，不写入分配表。终态和停用优先；未交卷已到期的试卷显示结算中并禁止继续，等待 P0 定时补偿。
+- 分配保存员工姓名、部门、岗位和目标职级。列表工号来自当前员工资料，部门/岗位名称及场景为当前字典/模板标签；有试卷后标题和时长采用试卷快照。这些列表标签不替代不可变试题与评分快照。
+
+## 2026-09-18：V019/V020 人工阅卷（已实现）
+
+- V019 在 `el_paper_qu` 增加上文的 `text_answer/grading_state/grader_id/grader_comment/graded_at`；新卷简答题为 PENDING，客观题为 NOT_REQUIRED。历史 short 仅初始化待评分，不虚构原文本答案。
+- `el_paper` 增加 `grading_version BIGINT NOT NULL DEFAULT 0`、`graded_by VARCHAR(64)`、`graded_at DATETIME`；增加 `(grading_state,hand_state,hand_time)` 索引。这里的 grading_state 实际使用 PENDING/GRADED；分配对应 PENDING_REVIEW/COMPLETED。
+- 新建 `el_paper_grading_log`：`id/paper_id/paper_qu_id/grader_id` 为 VARCHAR(64)，`score_before/score_after` 为 DECIMAL(10,2)，`comment_before/comment_after` 为 VARCHAR(2000)，`action` 为 VARCHAR(32)，`create_time` 为 DATETIME。完成操作的 paper_qu_id 为空，action 为 GRADE/REGRADE/FINALIZE；索引 `(paper_id,create_time,id)`。
+- 评分事务先锁分配再锁试卷；完成时按用户行锁串行维护成绩汇总，重复完成不增加考试次数。全部 short 为 GRADED 才生成最终分数和 passed。
+- V020 明确日志表使用 `utf8mb4_general_ci`，匹配现有业务表，避免 MySQL 8 默认排序规则引起 ID 联表冲突。两项迁移都已由 Flyway 应用，不手工重复执行。

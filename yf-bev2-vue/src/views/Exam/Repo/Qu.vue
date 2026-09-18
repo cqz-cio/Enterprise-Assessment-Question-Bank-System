@@ -15,6 +15,7 @@ const quId = ref()
 // 添加修改
 const dialogVisible = ref(false)
 const importDialogVisible = ref(false)
+const importFormat = ref<'excel' | 'word'>('excel')
 
 // 表格查询参数
 let query = ref<TableQueryType>({
@@ -67,11 +68,12 @@ const handleEdit = (row: any) => {
   dialogVisible.value = true
 }
 
-const handleImport = () => {
+const handleImport = (format: 'excel' | 'word' = 'excel') => {
   if (!query.value.params.repoId) {
     ElMessage.warning('请先选择要导入的目标题库')
     return
   }
+  importFormat.value = format
   importDialogVisible.value = true
 }
 
@@ -89,8 +91,13 @@ const handleRefresh = () => {
       :query="query"
       @on-add="handleAdd"
       @on-edit="handleEdit"
-      @on-import="handleImport"
+      @on-import="handleImport()"
     >
+      <template #actions>
+        <el-button v-hasPermi="['repo:qu:import']" icon="Upload" @click="handleImport('word')">
+          Word 批量导入
+        </el-button>
+      </template>
       <template #search>
         <el-input v-model="query.params.content" class="filter-item" placeholder="搜索题目" />
         <repo-select v-model="query.params.repoId" class="filter-item" />
@@ -130,6 +137,7 @@ const handleRefresh = () => {
     <QuImportDialog
       v-model:visible="importDialogVisible"
       :repo-id="query.params.repoId"
+      :format="importFormat"
       @imported="handleRefresh"
     />
   </ContentWrap>

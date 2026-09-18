@@ -16,4 +16,12 @@ public interface QuestionImportService {
     void writeTemplate(HttpServletResponse response) throws IOException;
 
     void writeErrorReport(String repoId, MultipartFile file, HttpServletResponse response) throws IOException;
+    QuestionImportPreviewRespDTO validateWord(String repoId, MultipartFile file, String defaultDifficulty);
+
+    QuestionImportResultRespDTO importWord(String repoId, MultipartFile file, String defaultDifficulty);
+
+    void writeWordTemplate(HttpServletResponse response) throws IOException;
+
+    void writeWordErrorReport(String repoId, MultipartFile file, String defaultDifficulty,
+                              HttpServletResponse response) throws IOException;
 }

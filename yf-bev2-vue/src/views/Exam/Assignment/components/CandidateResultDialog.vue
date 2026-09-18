@@ -1,5 +1,10 @@
 <template>
-  <el-dialog v-model="dialogVisible" title="候选人测评结果" width="980px" destroy-on-close>
+  <el-dialog
+    v-model="dialogVisible"
+    :title="employee ? '员工考核结果' : '候选人测评结果'"
+    width="980px"
+    destroy-on-close
+  >
     <div v-loading="loading" class="result-dialog-body">
       <template v-if="paperData.id">
         <div class="result-heading">
@@ -13,8 +18,8 @@
         </div>
 
         <el-descriptions :column="4" border class="result-summary">
-          <el-descriptions-item label="候选人编号">{{
-            candidate.candidateNo || '-'
+          <el-descriptions-item :label="employee ? '工号' : '候选人编号'">{{
+            (employee ? candidate.employeeNo : candidate.candidateNo) || '-'
           }}</el-descriptions-item>
           <el-descriptions-item label="部门">{{
             candidate.departName || '-'
@@ -65,13 +70,23 @@
               >
                 <span>{{ answer.abc }}. {{ answer.content }}</span>
                 <span class="answer-marks">
-                  <el-tag v-if="answer.checked" size="small" type="primary">候选人选择</el-tag>
+                  <el-tag v-if="answer.checked" size="small" type="primary">{{
+                    employee ? '员工选择' : '候选人选择'
+                  }}</el-tag>
                   <el-tag v-if="answer.isRight" size="small" type="success">正确答案</el-tag>
                 </span>
               </div>
             </div>
-            <div class="answer-summary">
-              <span>候选人答案：{{ selectedAnswers(question) }}</span>
+            <div v-if="question.quType === 'short'" class="short-result">
+              <p><strong>考生作答：</strong>{{ question.textAnswer || '未作答' }}</p>
+              <p><strong>参考答案：</strong>{{ question.referenceAnswer || '未配置' }}</p>
+              <p><strong>评分标准：</strong>{{ question.gradingCriteria || '未配置' }}</p>
+              <p><strong>阅卷评语：</strong>{{ question.graderComment || '无' }}</p>
+            </div>
+            <div v-else class="answer-summary">
+              <span
+                >{{ employee ? '员工答案' : '候选人答案' }}：{{ selectedAnswers(question) }}</span
+              >
               <span>正确答案：{{ correctAnswers(question) }}</span>
             </div>
           </el-card>
@@ -88,12 +103,14 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { candidateResultDetailApi } from '@/api/modules/exam/assignment'
+import { employeeResultApi } from '@/api/modules/exam/assignment/employee'
 
 const props = withDefaults(
   defineProps<{
     visible: boolean
     assignmentId?: string
     candidate?: Record<string, any>
+    employee?: boolean
   }>(),
   {
     assignmentId: '',
@@ -133,7 +150,9 @@ watch([() => props.visible, () => props.assignmentId], async ([visible, assignme
   loading.value = true
   paperData.value = { quList: [] }
   try {
-    const response = await candidateResultDetailApi({ id: assignmentId })
+    const response = await (props.employee ? employeeResultApi : candidateResultDetailApi)({
+      id: assignmentId
+    })
     paperData.value = response.data
   } finally {
     loading.value = false
@@ -142,6 +161,12 @@ watch([() => props.visible, () => props.assignmentId], async ([visible, assignme
 </script>
 
 <style scoped>
+.short-result {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  color: #606266;
+}
 .result-dialog-body {
   min-height: 220px;
 }

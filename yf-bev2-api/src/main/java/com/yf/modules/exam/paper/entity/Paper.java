@@ -47,6 +47,10 @@ public class Paper extends Model<Paper> {
     @TableField("assignment_id")
     private String assignmentId;
 
+    private Integer handMinSnapshot;
+    private String gradingState;
+    private String snapshotSource;
+
     /**
      * 考试标题
      */
@@ -103,6 +107,7 @@ public class Paper extends Model<Paper> {
     /**
      * 成绩是否合格
      */
+    @TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.ALWAYS)
     private Boolean passed;
 
     /**

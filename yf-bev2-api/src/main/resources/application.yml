@@ -1,5 +1,7 @@
 server:
   port: 8080
+  # Direct connections only; configure a trusted proxy explicitly before enabling forwarded addresses.
+  forward-headers-strategy: none
 
 security:
   jwt:
@@ -7,8 +9,8 @@ security:
     secret: ${JWT_SECRET:}
     expire-hours: ${JWT_EXPIRE_HOURS:24}
   assignment-code:
-    # 建议与 JWT_SECRET 使用不同随机值；未单独配置时仅为兼容本地启动而回退。
-    pepper: ${ASSIGNMENT_CODE_PEPPER:${JWT_SECRET:}}
+    # 独立注入，禁止缺失时悄悄更换已有考核码使用的密钥。
+    pepper: ${ASSIGNMENT_CODE_PEPPER:}
 
 spring:
   application:

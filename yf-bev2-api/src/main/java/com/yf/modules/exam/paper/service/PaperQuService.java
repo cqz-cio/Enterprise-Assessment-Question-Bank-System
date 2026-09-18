@@ -29,7 +29,7 @@ public interface PaperQuService extends IService<PaperQu> {
      * @param quList
      * @param startSort
      */
-    void saveToPaper(String paperId, BigDecimal perScore, List<RepoQuDetailDTO> quList, int startSort);
+    void saveToPaper(String paperId, BigDecimal perScore, List<RepoQuDetailDTO> quList, int startSort, boolean shuffleOptions);
 
     /**
      * 查找答题卡列表，按题型进行分组
@@ -62,4 +62,5 @@ public interface PaperQuService extends IService<PaperQu> {
      * @return
      */
     BigDecimal sumTotalScore(String paperId);
+    PaperQuFillRespDTO fillTextAnswer(com.yf.modules.exam.paper.dto.request.PaperTextAnswerDTO request, String userId);
 }

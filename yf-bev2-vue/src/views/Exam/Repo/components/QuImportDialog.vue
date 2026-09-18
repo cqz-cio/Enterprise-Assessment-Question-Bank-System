@@ -6,7 +6,11 @@ import {
   downloadImportErrorReportApi,
   downloadImportTemplateApi,
   importQuestionsApi,
-  validateImportApi
+  validateImportApi,
+  validateWordImportApi,
+  importWordQuestionsApi,
+  downloadWordTemplateApi,
+  downloadWordErrorReportApi
 } from '@/api/modules/exam/qu'
 import { detailApi as repoDetailApi } from '@/api/modules/exam/repo'
 import type {
@@ -15,12 +19,19 @@ import type {
   QuestionImportResultType
 } from '@/views/Exam/Repo/types'
 
-const props = defineProps<{ visible: boolean; repoId?: string | number }>()
+const props = defineProps<{
+  visible: boolean
+  repoId?: string | number
+  format?: 'excel' | 'word'
+}>()
 const emit = defineEmits<{
   (event: 'update:visible', value: boolean): void
   (event: 'imported'): void
 }>()
 
+const isWord = computed(() => props.format === 'word')
+const defaultDifficulty = ref('')
+const parseError = ref('')
 const uploadRef = ref<UploadInstance>()
 const activeStep = ref(0)
 const selectedFile = ref<File>()
@@ -34,9 +45,12 @@ const exampleVisible = ref(false)
 
 const canImport = computed(() => (preview.value?.validCount || 0) > 0)
 const issueRows = computed<QuestionImportIssueType[]>(() => preview.value?.issues || [])
+const busy = computed(() => loading.value || downloading.value)
 
 const resetState = () => {
   activeStep.value = 0
+  defaultDifficulty.value = ''
+  parseError.value = ''
   selectedFile.value = undefined
   selectedFileName.value = ''
   preview.value = undefined
@@ -60,18 +74,18 @@ watch(
 )
 
 const closeDialog = () => {
-  if (!loading.value) emit('update:visible', false)
+  if (!busy.value) emit('update:visible', false)
 }
 
 const beforeClose = (done: () => void) => {
-  if (!loading.value) done()
+  if (!busy.value) done()
 }
 
 const handleFileChange = (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
   const file = uploadFile.raw
   if (!file) return
-  if (!file.name.toLowerCase().endsWith('.xlsx')) {
-    ElMessage.error('仅支持 .xlsx 格式文件')
+  if (!file.name.toLowerCase().endsWith(isWord.value ? '.docx' : '.xlsx')) {
+    ElMessage.error(isWord.value ? '仅支持 .docx 格式文件，不支持 .doc' : '仅支持 .xlsx 格式文件')
     uploadRef.value?.clearFiles()
     selectedFile.value = undefined
     return
@@ -82,6 +96,8 @@ const handleFileChange = (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
     selectedFile.value = undefined
     return
   }
+  parseError.value = ''
+  preview.value = undefined
   selectedFile.value = file
   selectedFileName.value = file.name
   if (uploadFiles.length > 1) uploadFiles.splice(0, uploadFiles.length - 1)
@@ -96,16 +112,23 @@ const buildFormData = () => {
   const formData = new FormData()
   if (selectedFile.value) formData.append('file', selectedFile.value)
   formData.append('repoId', String(props.repoId || ''))
+  if (isWord.value && defaultDifficulty.value)
+    formData.append('defaultDifficulty', defaultDifficulty.value)
   return formData
 }
 
 const validateFile = async () => {
   if (!props.repoId) return ElMessage.warning('请先选择要导入的目标题库')
-  if (!selectedFile.value) return ElMessage.warning('请先选择 Excel 文件')
+  if (!selectedFile.value)
+    return ElMessage.warning(isWord.value ? '请先选择 Word 文件' : '请先选择 Excel 文件')
   loading.value = true
   try {
-    preview.value = (await validateImportApi(buildFormData())).data
+    parseError.value = ''
+    const validate = isWord.value ? validateWordImportApi : validateImportApi
+    preview.value = (await validate(buildFormData())).data
     activeStep.value = 1
+  } catch (error: any) {
+    parseError.value = error?.message || '文件校验失败，请检查格式后重试'
   } finally {
     loading.value = false
   }
@@ -124,7 +147,8 @@ const confirmImport = async () => {
   }
   loading.value = true
   try {
-    result.value = (await importQuestionsApi(buildFormData())).data
+    const importFile = isWord.value ? importWordQuestionsApi : importQuestionsApi
+    result.value = (await importFile(buildFormData())).data
     activeStep.value = 2
     if ((result.value?.successCount || 0) > 0) emit('imported')
   } finally {
@@ -132,8 +156,18 @@ const confirmImport = async () => {
   }
 }
 
-const downloadBlob = (response: any, fallbackName: string) => {
+const downloadBlob = async (response: any, fallbackName: string) => {
   const blob = response.data instanceof Blob ? response.data : new Blob([response.data])
+  if (blob.type.includes('json')) {
+    let message = '下载失败，请重试'
+    try {
+      message = JSON.parse(await blob.text()).msg || message
+    } catch {
+      // 保留通用错误提示。
+    }
+    ElMessage.error(message)
+    return
+  }
   const disposition = response.headers?.['content-disposition'] || ''
   const matched = disposition.match(/filename\*=UTF-8''([^;]+)/i)
   const fileName = matched ? decodeURIComponent(matched[1]) : fallbackName
@@ -150,7 +184,11 @@ const downloadBlob = (response: any, fallbackName: string) => {
 const downloadTemplate = async () => {
   downloading.value = true
   try {
-    downloadBlob(await downloadImportTemplateApi(), '试题导入模板.xlsx')
+    const download = isWord.value ? downloadWordTemplateApi : downloadImportTemplateApi
+    await downloadBlob(
+      await download(),
+      isWord.value ? 'Word试题导入模板.docx' : '试题导入模板.xlsx'
+    )
   } finally {
     downloading.value = false
   }
@@ -160,7 +198,15 @@ const downloadErrorReport = async () => {
   if (!selectedFile.value) return
   downloading.value = true
   try {
-    downloadBlob(await downloadImportErrorReportApi(buildFormData()), '试题导入错误报告.xlsx')
+    if (result.value?.errorReportBase64) {
+      const bytes = Uint8Array.from(atob(result.value.errorReportBase64), (char) =>
+        char.charCodeAt(0)
+      )
+      await downloadBlob({ data: new Blob([bytes]) }, '试题导入错误报告.xlsx')
+    } else {
+      const download = isWord.value ? downloadWordErrorReportApi : downloadImportErrorReportApi
+      await downloadBlob(await download(buildFormData()), '试题导入错误报告.xlsx')
+    }
   } finally {
     downloading.value = false
   }
@@ -175,7 +221,9 @@ const backToUpload = () => {
 <template>
   <el-dialog
     :model-value="visible"
-    title="Excel 批量导入试题"
+    :title="isWord ? 'Word 批量导入试题' : 'Excel 批量导入试题'"
+    :top="isWord ? '4vh' : '15vh'"
+    :class="{ 'word-import-dialog': isWord }"
     width="920px"
     :close-on-click-modal="false"
     :before-close="beforeClose"
@@ -199,35 +247,99 @@ const backToUpload = () => {
 
       <section class="template-card">
         <div>
-          <div class="section-title">先下载标准模板</div>
+          <div class="section-title">{{ isWord ? '按标准格式编写题目' : '先下载标准模板' }}</div>
           <div class="section-desc">
-            一个模板支持单选题、多选题、判断题和简答题，内含填写说明、示例和字段字典。
+            {{
+              isWord
+                ? '支持单选题、多选题、判断题和简答题'
+                : '一个模板支持四种题型，内含填写说明、示例和字段字典。'
+            }}
           </div>
         </div>
         <div class="template-actions">
-          <el-button :loading="downloading" @click="downloadTemplate">下载 Excel 模板</el-button>
-          <el-button link type="primary" @click="exampleVisible = true">查看填写示例</el-button>
+          <el-button :loading="downloading" @click="downloadTemplate">
+            {{ isWord ? '下载 Word 模板' : '下载 Excel 模板' }}
+          </el-button>
+          <el-button v-if="!isWord" link type="primary" @click="exampleVisible = true"
+            >查看填写示例</el-button
+          >
         </div>
+      </section>
+
+      <section v-if="isWord" class="word-example">
+        <strong>填写格式示例</strong>
+        <pre>
+1.【单选题】中国的首都是哪里？
+A. 北京
+B. 上海
+答案：A
+难度：简单
+解析：北京是中国的首都。</pre>
+        <div class="section-desc"
+          >题号请手工输入，选项与答案分别独立成段。模板中的示例题请替换为实际题目。</div
+        >
       </section>
 
       <el-upload
         ref="uploadRef"
         drag
         action="#"
-        accept=".xlsx"
+        :accept="isWord ? '.docx' : '.xlsx'"
+        :disabled="busy"
         :auto-upload="false"
         :limit="1"
         :on-change="handleFileChange"
         :on-remove="handleFileRemove"
       >
-        <div class="upload-icon">XLSX</div>
-        <div class="el-upload__text">拖拽文件到这里，或 <em>点击选择文件</em></div>
+        <div class="upload-icon" :class="{ 'word-icon': isWord }">{{ isWord ? 'W' : 'XLSX' }}</div>
+        <div class="el-upload__text"
+          >{{ isWord ? '拖拽 Word 文件到这里，或' : '拖拽文件到这里，或' }}
+          <em>点击选择文件</em></div
+        >
         <template #tip>
-          <div class="el-upload__tip">仅支持 .xlsx，单次最多 1000 道题，文件不超过 10MB</div>
+          <div class="el-upload__tip"
+            >仅支持 {{ isWord ? '.docx 文字题' : '.xlsx' }}，单次最多 1000 道题，文件不超过
+            10MB</div
+          >
         </template>
       </el-upload>
 
+      <div v-if="isWord" class="word-difficulty">
+        <label for="word-default-difficulty">缺失难度统一设置</label>
+        <el-select
+          id="word-default-difficulty"
+          v-model="defaultDifficulty"
+          clearable
+          placeholder="请选择（仅补充未填写的题目）"
+          :disabled="busy"
+          style="width: 330px"
+        >
+          <el-option
+            v-for="item in ['简单', '一般', '较难', '极难']"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
+      </div>
       <el-alert
+        v-if="isWord"
+        class="import-alert"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="暂不支持图片、公式、表格和自动编号；无法识别的内容将提示修改。"
+      />
+      <el-alert
+        v-if="parseError"
+        class="import-alert"
+        type="error"
+        :closable="false"
+        show-icon
+        :title="parseError"
+      />
+      <el-alert
+        v-if="!isWord"
         class="import-alert"
         title="重复题将跳过，不覆盖已有内容；有效行会继续导入，错误行可下载报告修改后重试。"
         type="info"
@@ -269,7 +381,12 @@ const backToUpload = () => {
       </div>
 
       <el-table v-if="issueRows.length" :data="issueRows" border height="310">
-        <el-table-column prop="rowNumber" label="行号" width="72" align="center" />
+        <el-table-column
+          prop="rowNumber"
+          :label="isWord ? '起始段' : '行号'"
+          width="80"
+          align="center"
+        />
         <el-table-column prop="questionCode" label="题目编号" width="120" show-overflow-tooltip />
         <el-table-column prop="content" label="题干" min-width="190" show-overflow-tooltip />
         <el-table-column prop="field" label="字段" width="110" />
@@ -282,12 +399,55 @@ const backToUpload = () => {
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-else description="全部校验通过，可以直接导入" :image-size="82" />
+      <el-empty v-else-if="!isWord" description="全部校验通过，可以直接导入" :image-size="82" />
+      <template v-if="isWord && preview?.questions?.length">
+        <div class="review-header word-preview-title">
+          <strong>识别出的题目</strong
+          ><span class="section-desc">展开检查题干、选项和答案后再确认导入</span>
+        </div>
+        <el-table :data="preview.questions" border max-height="320">
+          <el-table-column type="expand">
+            <template #default="{ row }">
+              <div class="word-question-detail">
+                <strong>题干</strong><p>{{ row.content }}</p>
+                <template v-for="(option, index) in row.options" :key="index">
+                  <p v-if="option">{{ String.fromCharCode(65 + index) }}. {{ option }}</p>
+                </template>
+                <p v-if="row.answer"><strong>答案：</strong>{{ row.answer }}</p>
+                <p v-if="row.explanation"
+                  ><strong>{{ row.questionType === '简答题' ? '参考答案：' : '解析：' }}</strong
+                  >{{ row.explanation }}</p
+                >
+                <p v-if="row.gradingCriteria"
+                  ><strong>评分要点：</strong>{{ row.gradingCriteria }}</p
+                >
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="questionCode" label="题号" width="70" />
+          <el-table-column prop="questionType" label="题型" width="90" />
+          <el-table-column prop="content" label="题干" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="difficulty" label="难度" width="80" />
+          <el-table-column label="校验" width="100">
+            <template #default="{ row }"
+              ><el-tag
+                :type="
+                  row.status === 'VALID' ? 'success' : row.status === 'ERROR' ? 'danger' : 'warning'
+                "
+              >
+                {{
+                  row.status === 'VALID' ? '可导入' : row.status === 'ERROR' ? '待修改' : '重复跳过'
+                }}
+              </el-tag></template
+            >
+          </el-table-column>
+        </el-table>
+      </template>
     </div>
 
     <div v-else class="result-panel">
       <el-result
-        icon="success"
+        :icon="(result?.successCount || 0) > 0 ? 'success' : 'warning'"
         title="导入处理完成"
         :sub-title="`已成功导入 ${result?.successCount || 0} 道试题`"
       >
@@ -313,13 +473,25 @@ const backToUpload = () => {
         </el-button>
       </div>
       <div v-else-if="activeStep === 1">
-        <el-button :disabled="loading" @click="backToUpload">重新选择</el-button>
-        <el-button type="primary" :loading="loading" :disabled="!canImport" @click="confirmImport">
+        <el-button :disabled="busy" @click="backToUpload">重新选择</el-button>
+        <el-button
+          type="primary"
+          :loading="loading"
+          :disabled="busy || !canImport"
+          @click="confirmImport"
+        >
           确认导入 {{ preview?.validCount || 0 }} 道
         </el-button>
       </div>
       <div v-else>
-        <el-button @click="resetState">继续导入</el-button>
+        <el-button
+          v-if="result?.errorReportBase64"
+          :loading="downloading"
+          @click="downloadErrorReport"
+        >
+          下载错误报告
+        </el-button>
+        <el-button :disabled="busy" @click="resetState">继续导入</el-button>
         <el-button type="primary" @click="closeDialog">完成</el-button>
       </div>
     </template>
@@ -330,7 +502,7 @@ const backToUpload = () => {
       :data="[
         { type: '单选题', options: 'A-D 连续填写', answer: 'A', extra: '解析可选' },
         { type: '多选题', options: 'A-F 连续填写', answer: 'A,C,D', extra: '使用英文逗号分隔' },
-        { type: '判断题', options: '不填写', answer: '正确', extra: '也可填写 true/false' },
+        { type: '判断题', options: '不填写', answer: '正确', extra: '仅支持“正确”或“错误”' },
         { type: '简答题', options: '不填写', answer: '不填写', extra: '参考答案、评分要点可选' }
       ]"
       border
@@ -351,6 +523,50 @@ const backToUpload = () => {
 </template>
 
 <style scoped>
+:global(.word-import-dialog .el-dialog__body) {
+  max-height: calc(92vh - 130px);
+  overflow-y: auto;
+}
+.word-example {
+  padding: 12px 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.word-example pre {
+  margin: 6px 0;
+  font: inherit;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.word-difficulty {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 16px;
+}
+.word-icon {
+  color: white !important;
+  background: var(--el-color-primary) !important;
+  width: 36px !important;
+  height: 42px !important;
+  font-size: 22px;
+}
+:global(.word-import-dialog .el-upload-dragger) {
+  padding: 18px;
+}
+.word-preview-title {
+  margin-top: 16px;
+}
+.word-question-detail {
+  padding: 12px 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.word-question-detail p {
+  margin: 6px 0;
+}
+
 .import-steps {
   margin: 4px 20px 28px;
 }

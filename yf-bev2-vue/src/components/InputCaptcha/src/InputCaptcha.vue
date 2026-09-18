@@ -16,7 +16,7 @@ const { getPrefixCls } = useDesign()
 
 const prefixCls = getPrefixCls('input-captcha')
 
-const imageUrl = ref<String>('')
+const imageUrl = ref<string>('')
 
 const props = defineProps({
   modelValue: propTypes.object.def({
@@ -39,6 +39,8 @@ const changeCode = () => {
   valueRef.value.captchaValue = ''
   imageUrl.value = `${import.meta.env.VITE_API_HOST}/api/common/captcha/gen?key=${key}`
 }
+
+defineExpose({ refresh: changeCode })
 
 // 监听
 watch(

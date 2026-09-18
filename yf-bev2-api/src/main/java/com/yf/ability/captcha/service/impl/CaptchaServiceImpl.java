@@ -1,60 +1,37 @@
 package com.yf.ability.captcha.service.impl;
 
-
+import com.yf.ability.auth.AuthUnavailableException;
 import com.yf.ability.captcha.service.CaptchaService;
-import com.yf.ability.redis.service.RedisService;
+import com.yf.base.api.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import java.time.Duration;
 
-/**
- * 验证码业务类
- *
- * @author bool
- * @date 2020-02-21 10:05
- */
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class CaptchaServiceImpl implements CaptchaService {
-
-    private final RedisService redisService;
-
-    /**
-     * 验证码缓存前缀
-     */
-    private static final String CAPTCHA_PREFIX = "sys:captcha:";
-
+    private final StringRedisTemplate redis;
+    private static final String PREFIX = "sys:captcha:";
+    private boolean validKey(String key) {
+        return key != null && key.matches("[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}");
+    }
     @Override
     public void saveCaptcha(String key, String value) {
-        redisService.set(appendKey(key), value, 300L);
+        if (!validKey(key)) throw new ServiceException("验证码标识无效，请刷新！");
+        Boolean saved;
+        try { saved = redis.opsForValue().setIfAbsent(PREFIX + key.toLowerCase(java.util.Locale.ROOT), value, Duration.ofMinutes(5)); }
+        catch (RuntimeException e) { throw new AuthUnavailableException(); }
+        if (saved == null) throw new AuthUnavailableException();
+        if (!saved) throw new ServiceException("请使用新的验证码标识！");
     }
-
     @Override
     public boolean checkCaptcha(String key, String input) {
-
-        // 完整KEY
-        String fullKey = appendKey(key);
-
-        String value = redisService.getString(fullKey);
-
-        // 校验
-        boolean result = StringUtils.isNotBlank(value) && value.equalsIgnoreCase(input);
-
-        // 验证正确就清除
-        if (result) {
-            redisService.del(fullKey);
-        }
-
-        return result;
-    }
-
-    /**
-     * 组合KEY
-     *
-     * @param key
-     * @return
-     */
-    private String appendKey(String key) {
-        return CAPTCHA_PREFIX + key;
+        if (!validKey(key)) return false;
+        String value;
+        // A challenge is consumed atomically on every verification, including wrong answers.
+        try { value = redis.opsForValue().getAndDelete(PREFIX + key.toLowerCase(java.util.Locale.ROOT)); }
+        catch (RuntimeException e) { throw new AuthUnavailableException(); }
+        return value != null && input != null && input.length() <= 16 && value.equalsIgnoreCase(input.trim());
     }
 }

@@ -39,6 +39,18 @@ export type QuestionImportIssueType = {
 export type QuestionImportPreviewType = {
   totalCount: number
   validCount: number
+  questions?: {
+    paragraph: number
+    questionCode: string
+    questionType: string
+    content: string
+    options: string[]
+    answer: string
+    difficulty: string
+    explanation: string
+    gradingCriteria: string
+    status: 'VALID' | 'ERROR' | 'DUPLICATE'
+  }[]
   duplicateCount: number
   failureCount: number
   templateVersion: string
@@ -48,6 +60,7 @@ export type QuestionImportPreviewType = {
 export type QuestionImportResultType = {
   totalCount: number
   successCount: number
+  errorReportBase64?: string
   duplicateCount: number
   failureCount: number
   templateVersion: string

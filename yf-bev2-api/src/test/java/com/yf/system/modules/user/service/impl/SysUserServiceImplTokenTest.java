@@ -36,7 +36,7 @@ class SysUserServiceImplTokenTest {
         userMapper = mock(SysUserMapper.class);
         service = new SysUserServiceImpl(
                 mock(SysUserRoleService.class), redisService, mock(CaptchaService.class),
-                mock(CfgSwitchService.class), mock(SysMenuService.class), jwtUtils);
+                mock(CfgSwitchService.class), mock(SysMenuService.class), jwtUtils, mock(com.yf.ability.auth.AuthRateLimiter.class));
         ReflectionTestUtils.setField(service, "baseMapper", userMapper);
     }
 

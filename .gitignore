@@ -9,3 +9,11 @@ yf-exam-api/target/
 yf-bev2-vue/.idea/
 yf-bev2-api/target/
 yf-bev2-api/.idea/
+
+# Windows DPAPI secrets and process metadata (never commit)
+.local/
+
+# Local previews, test fixtures, backups and runtime output
+/work/
+/yf-bev2-api/work/
+/yf-bev2-api/logs/

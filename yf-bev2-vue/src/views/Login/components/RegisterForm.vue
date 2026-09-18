@@ -73,7 +73,12 @@
     </el-form-item>
 
     <el-form-item :label="t('login.code')" prop="captchaValue">
-      <input-captcha v-model="form" :placeholder="t('login.codePlaceholder')" class="!w-full" />
+      <input-captcha
+        ref="captchaRef"
+        v-model="form"
+        :placeholder="t('login.codePlaceholder')"
+        class="!w-full"
+      />
     </el-form-item>
 
     <el-form-item>
@@ -120,6 +125,7 @@ const form = ref<UserLoginType>({
   captchaValue: ''
 })
 const formRef = ref<FormInstance>()
+const captchaRef = ref<{ refresh: () => void }>()
 
 // 密码校验
 const checkPass = (_rule: any, value: any, callback: any) => {
@@ -146,7 +152,7 @@ const departments = ref<any[]>([])
 
 // 登录
 const register = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
+  if (!formEl || loading.value) return
   await formEl?.validate(async (isValid) => {
     if (isValid) {
       loading.value = true
@@ -161,6 +167,7 @@ const register = async (formEl: FormInstance | undefined) => {
         })
         .catch(() => {
           loading.value = false
+          captchaRef.value?.refresh()
         })
     }
   })

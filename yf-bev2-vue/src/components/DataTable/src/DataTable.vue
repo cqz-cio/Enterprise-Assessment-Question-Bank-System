@@ -48,6 +48,7 @@
           @click="onImport"
           >{{ ip.label || '导入' }}
         </el-button>
+        <slot name="actions"></slot>
         <el-button
           v-if="op && op.enable"
           v-hasPermi="op.permission"

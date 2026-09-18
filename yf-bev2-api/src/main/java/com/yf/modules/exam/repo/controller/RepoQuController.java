@@ -136,4 +136,38 @@ public class RepoQuController extends BaseController {
             HttpServletResponse response) throws IOException {
         questionImportService.writeErrorReport(repoId, file, response);
     }
+
+    @Operation(summary = "下载 Word 试题模板")
+    @RequiresPermissions("repo:qu:import")
+    @GetMapping("/import-word-template")
+    public void wordTemplate(HttpServletResponse response) throws IOException {
+        questionImportService.writeWordTemplate(response);
+    }
+
+    @Operation(summary = "校验 Word 试题")
+    @RequiresPermissions("repo:qu:import")
+    @PostMapping(value = "/import-word/validate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiRest<QuestionImportPreviewRespDTO> validateWord(
+            @RequestParam("repoId") String repoId, @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "defaultDifficulty", required = false) String defaultDifficulty) {
+        return success(questionImportService.validateWord(repoId, file, defaultDifficulty));
+    }
+
+    @Operation(summary = "确认导入 Word 试题")
+    @RequiresPermissions("repo:qu:import")
+    @PostMapping(value = "/import-word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiRest<QuestionImportResultRespDTO> importWord(
+            @RequestParam("repoId") String repoId, @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "defaultDifficulty", required = false) String defaultDifficulty) {
+        return success(questionImportService.importWord(repoId, file, defaultDifficulty));
+    }
+
+    @Operation(summary = "下载 Word 试题校验报告")
+    @RequiresPermissions("repo:qu:import")
+    @PostMapping(value = "/import-word-error-report", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public void wordErrorReport(@RequestParam("repoId") String repoId, @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "defaultDifficulty", required = false) String defaultDifficulty,
+            HttpServletResponse response) throws IOException {
+        questionImportService.writeWordErrorReport(repoId, file, defaultDifficulty, response);
+    }
 }

@@ -15,6 +15,12 @@ import org.apache.ibatis.annotations.Param;
  */
 public interface PaperMapper extends BaseMapper<Paper> {
 
+    @org.apache.ibatis.annotations.Select("SELECT * FROM el_paper WHERE id = #{id} FOR UPDATE")
+    Paper selectByIdForUpdate(@Param("id") String id);
+
+    @org.apache.ibatis.annotations.Select("SELECT id FROM el_paper WHERE hand_state = 0 AND limit_time <= CURRENT_TIMESTAMP AND id > #{afterId} ORDER BY id LIMIT 100")
+    java.util.List<String> selectOverdueIds(@Param("afterId") String afterId);
+
     /**
      * 查找试卷详情，包含全部试题及答案
      * @param id

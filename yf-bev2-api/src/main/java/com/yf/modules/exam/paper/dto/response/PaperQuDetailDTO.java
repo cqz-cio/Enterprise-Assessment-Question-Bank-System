@@ -44,6 +44,13 @@ public class PaperQuDetailDTO implements Serializable {
     @Schema(description = "题目内容")
     private String content;
 
+    private String analysis;
+    private String textAnswer;
+    private String referenceAnswer;
+    private String gradingCriteria;
+    private String graderComment;
+    private String gradingState;
+
     @Schema(description = "题目内容")
     private Integer sort;
 

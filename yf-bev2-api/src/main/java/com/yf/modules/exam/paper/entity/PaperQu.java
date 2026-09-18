@@ -49,6 +49,16 @@ public class PaperQu extends Model<PaperQu> {
     @TableField("qu_type")
     private String quType;
 
+    private String contentSnapshot;
+    private String analysisSnapshot;
+    private String referenceAnswerSnapshot;
+    private String gradingCriteriaSnapshot;
+    private String textAnswer;
+    private String gradingState;
+    private String graderId;
+    private String graderComment;
+    private java.util.Date gradedAt;
+
     /**
      * 是否已答
      */

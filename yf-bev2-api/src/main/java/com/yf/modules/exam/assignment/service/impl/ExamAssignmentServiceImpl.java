@@ -124,8 +124,20 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
             throw credentialError();
         }
 
+        assignment = lockCandidate(assignment.getId());
+        if (!StringUtils.trim(reqDTO.getCandidateName()).equals(assignment.getSubjectName())
+                || !accessCodeManager.matches(code, assignment.getAccessCodeHash())) throw credentialError();
         Date now = new Date();
-        ensureEnterable(assignment, now);
+        boolean resultOnly = AssignmentStatus.COMPLETED.equals(assignment.getStatus())
+                || AssignmentStatus.PENDING_REVIEW.equals(assignment.getStatus());
+        if (resultOnly) {
+            Paper paper = StringUtils.isBlank(assignment.getPaperId()) ? null : paperService.getById(assignment.getPaperId());
+            if (assignment.getExpireAt() == null || !assignment.getExpireAt().after(now)
+                    || paper == null || !Integer.valueOf(1).equals(paper.getHandState())
+                    || !assignment.getId().equals(paper.getAssignmentId()) || !assignment.getUserId().equals(paper.getUserId())) {
+                throw credentialError();
+            }
+        } else ensureEnterable(assignment, now);
         if (AssignmentStatus.ASSIGNED.equals(assignment.getStatus())) {
             assignment.setStatus(AssignmentStatus.STARTED);
             assignment.setActivatedAt(now);
@@ -169,7 +181,8 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
         if (paper == null
                 || !assignment.getId().equals(paper.getAssignmentId())
                 || !assignment.getUserId().equals(paper.getUserId())
-                || !Integer.valueOf(1).equals(paper.getHandState())) {
+                || !Integer.valueOf(1).equals(paper.getHandState())
+                || "PENDING".equals(paper.getGradingState())) {
             throw new ServiceException("候选人考核试卷状态异常！");
         }
 
@@ -183,7 +196,7 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CandidateCreateRespDTO resetCode(String id) {
-        ExamAssignment assignment = lock(id);
+        ExamAssignment assignment = lockCandidate(id);
         ensureEnterable(assignment, new Date());
         String code = generateUniqueCode();
         assignment.setAccessCodeLookup(accessCodeManager.lookup(code));
@@ -197,7 +210,7 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changeStatus(AssignmentStatusReqDTO reqDTO) {
-        ExamAssignment assignment = lock(reqDTO.getId());
+        ExamAssignment assignment = lockCandidate(reqDTO.getId());
         String action = reqDTO.getAction().trim().toUpperCase(Locale.ROOT);
         if ("DISABLE".equals(action)) {
             if (AssignmentStatus.COMPLETED.equals(assignment.getStatus())
@@ -263,6 +276,9 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
             if (!Integer.valueOf(0).equals(existing.getHandState())) {
                 throw new ServiceException("考核已完成，不能重复进入！");
             }
+            if (existing.getLimitTime() == null || !existing.getLimitTime().after(new Date())) {
+                throw new ServiceException("试卷已到期，不能继续作答，结果正在结算！");
+            }
             return new AssignmentStartRespDTO(existing.getId(), true);
         }
 
@@ -284,7 +300,9 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
         Boolean passed = null;
         if (available) {
             Paper paper = paperService.getById(assignment.getPaperId());
-            available = paper != null && Integer.valueOf(1).equals(paper.getHandState());
+            available = paper != null && Integer.valueOf(1).equals(paper.getHandState())
+                    && assignment.getId().equals(paper.getAssignmentId())
+                    && userId.equals(paper.getUserId()) && !"PENDING".equals(paper.getGradingState());
             passed = available ? paper.getPassed() : null;
         }
         return new AssignmentResultRespDTO(assignment.getId(), available, passed);
@@ -316,9 +334,15 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
         throw new ServiceException("考核码生成失败，请稍后重试！");
     }
 
+    private ExamAssignment lockCandidate(String id) {
+        ExamAssignment assignment = lock(id);
+        if (!SysRoleId.CANDIDATE.equals(assignment.getSubjectType())) throw new ServiceException("候选人考核不存在！");
+        return assignment;
+    }
+
     private ExamAssignment lock(String id) {
         ExamAssignment assignment = baseMapper.selectByIdForUpdate(id);
-        if (assignment == null || !SysRoleId.CANDIDATE.equals(assignment.getSubjectType())) {
+        if (assignment == null) {
             throw new ServiceException("考核信息不存在！");
         }
         return assignment;
@@ -345,7 +369,9 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
         if (!assignment.getExpireAt().after(now) || AssignmentStatus.EXPIRED.equals(assignment.getStatus())) {
             assignment.setStatus(AssignmentStatus.EXPIRED);
             updateById(assignment);
-            sysUserService.invalidateSessions(List.of(assignment.getUserId()));
+            if (SysRoleId.CANDIDATE.equals(assignment.getSubjectType())) {
+                sysUserService.invalidateSessions(List.of(assignment.getUserId()));
+            }
             throw new ServiceException("考核已过期！");
         }
         if (assignment.getValidFrom() != null && assignment.getValidFrom().after(now)) {

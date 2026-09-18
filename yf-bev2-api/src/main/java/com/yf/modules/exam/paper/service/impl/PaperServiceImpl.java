@@ -104,144 +104,33 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
 
     @Override
     public PaperCheckRespDTO preCheck(String examId, String userId) {
-
-
-        PaperCheckRespDTO respDTO = new PaperCheckRespDTO();
-        respDTO.setValidated(false);
-
-
-        // 查找考试基本信息
-        Exam exam = examService.getById(examId);
-
-        if (exam.getStartTime().after(new Date())) {
-            respDTO.setMessage("考试尚未开始，请耐心等待！");
-            return respDTO;
-        }
-
-        if (exam.getEndTime().before(new Date())) {
-            respDTO.setMessage("来迟一步，考试已结束！");
-            return respDTO;
-        }
-
-        // 进行中的
-        String paperId = this.findProcess(examId, userId);
-        if (StringUtils.isNotBlank(paperId)) {
-            respDTO.setMessage("有正在进行中的考试！");
-            respDTO.setPaperId(paperId);
-            return respDTO;
-        }
-
-        // 校验迟到
-        if (exam.getLateMax() != null && exam.getLateMax() > 0) {
-            Calendar cl = Calendar.getInstance();
-            cl.setTime(exam.getStartTime());
-            cl.add(Calendar.MINUTE, exam.getLateMax());
-
-            if (cl.getTime().before(new Date())) {
-                respDTO.setMessage(String.format("迟到超过%s分钟，无法进入考试！", exam.getLateMax()));
-                return respDTO;
-            }
-        }
-
-        // 考试机会校验
-        if (exam.getChance() != null && exam.getChance() > 0) {
-            int tryCount = examRecordService.findTryCount(examId, userId);
-            if (exam.getChance() <= tryCount) {
-                respDTO.setMessage(String.format("考试机会已用完，最多允许考试%s次！", exam.getChance()));
-                return respDTO;
-            }
-        }
-
-        respDTO.setValidated(true);
-        return respDTO;
-
+        throw new ServiceException("直接按考试模板进入的入口已停用，请从本人考核分配进入！");
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @Override
     public String createPaper(String examId, String userId) {
-
-        // 校验
-        PaperCheckRespDTO checkDTO = this.preCheck(examId, userId);
-        if (Boolean.FALSE.equals(checkDTO.getValidated())) {
-            throw new ServiceException(checkDTO.getMessage());
-        }
-
-        // 做基础校验
-        Exam exam = examService.getById(examId);
-
-        // 复制数据
-        Paper paper = new Paper();
-        paper.setTitle(exam.getTitle());
-        paper.setExamId(examId);
-        paper.setUserId(userId);
-        paper.setTotalScore(exam.getTotalScore());
-        paper.setQualifyScore(exam.getQualifyScore());
-        paper.setUserScore(DecimalUtils.zero());
-        paper.setUserTime(0);
-
-        // 计算交卷时间
-        Integer totalTime = exam.getTotalTime();
-        paper.setTotalTime(totalTime);
-        if (totalTime != null && totalTime > 0) {
-            Calendar cl = Calendar.getInstance();
-            cl.setTimeInMillis(System.currentTimeMillis());
-            cl.add(Calendar.MINUTE, totalTime);
-            Date limitTime = cl.getTime();
-
-            // 整个考试的时间
-            if (limitTime.before(exam.getEndTime())) {
-                paper.setLimitTime(limitTime);
-            } else {
-                paper.setLimitTime(exam.getEndTime());
-            }
-
-        } else {
-            paper.setLimitTime(exam.getEndTime());
-        }
-
-        // 增加定时任务
-        this.save(paper);
-
-        // 构建随机题目
-        List<ExamRuleDTO> ruleList = examRuleService.listByExam(examId);
-
-        if (CollectionUtils.isEmpty(ruleList)) {
-            throw new ServiceException("考试进入失败，没有组卷规则！");
-        }
-
-        // 循环保存
-        int sort = 1;
-        for (ExamRuleDTO rule : ruleList) {
-            // 未抽题的
-            if (rule.getQuCount() == null || rule.getQuCount() == 0) {
-                continue;
-            }
-            List<RepoQuDetailDTO> quList = repoQuService.listForPaper(rule.getRepoId(), rule.getQuType(), rule.getQuCount());
-            paperQuService.saveToPaper(paper.getId(), rule.getQuScore(), quList, sort);
-
-            // 序号增加
-            sort+=quList.size();
-        }
-
-
-        // 到期执行任务
-        String paperId = paper.getId();
-        // 执行阅卷或完成
-        String jobName = "force:hand:paper:" + paperId;
-        jobService.addCronJob(HandPaperJob.class, jobName, JobGroup.SYSTEM, CronUtils.dateToCron(paper.getLimitTime()), paperId);
-
-        return paperId;
+        throw new ServiceException("直接按考试模板开考的入口已停用，请从本人考核分配进入！");
     }
 
     @Transactional(rollbackFor = Exception.class)
     @Override
     public String createPaperForAssignment(ExamAssignment assignment) {
+        // Re-lock and reload rather than trusting the object supplied by the caller.
+        assignment = examAssignmentMapper.selectByIdForUpdate(assignment.getId());
+        if (assignment == null || !AssignmentStatus.isEnterable(assignment.getStatus())
+                || assignment.getExpireAt() == null || !assignment.getExpireAt().after(new Date())
+                || (assignment.getValidFrom() != null && assignment.getValidFrom().after(new Date()))) {
+            throw new ServiceException("考核当前不可进入！");
+        }
         Paper existing = this.getOne(new QueryWrapper<Paper>().lambda()
                 .eq(Paper::getAssignmentId, assignment.getId()), false);
         if (existing != null) {
             if (!existing.getUserId().equals(assignment.getUserId())) {
                 throw new ServiceException("考核试卷状态异常，请联系管理员！");
+            }
+            if (!Integer.valueOf(0).equals(existing.getHandState())
+                    || existing.getLimitTime() == null || !existing.getLimitTime().after(new Date())) {
+                throw new ServiceException("考核已交卷或已到期，不能重新进入！");
             }
             return existing.getId();
         }
@@ -261,6 +150,9 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
         paper.setUserScore(DecimalUtils.zero());
         paper.setUserTime(0);
         paper.setHandState(0);
+        paper.setHandMinSnapshot(exam.getHandMin() == null ? 0 : exam.getHandMin());
+        paper.setGradingState("NOT_REQUIRED");
+        paper.setSnapshotSource("CREATED");
 
         Integer totalTime = exam.getTotalTime();
         paper.setTotalTime(totalTime);
@@ -276,9 +168,17 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
         this.save(paper);
 
         List<ExamRuleDTO> ruleList = examRuleService.listByExam(exam.getId());
-        if (CollectionUtils.isEmpty(ruleList)) {
-            throw new ServiceException("考试进入失败，没有组卷规则！");
+        com.yf.modules.exam.paper.service.ObjectivePaperPolicy.validateRules(ruleList);
+        BigDecimal calculatedTotal = ruleList.stream()
+                .filter(r -> r.getQuCount() > 0)
+                .map(r -> r.getQuScore().multiply(BigDecimal.valueOf(r.getQuCount())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (exam.getQualifyScore() == null || exam.getQualifyScore().signum() < 0
+                || exam.getQualifyScore().compareTo(calculatedTotal) > 0) {
+            throw new ServiceException("及格分必须介于零与试卷总分之间！");
         }
+        paper.setTotalScore(calculatedTotal);
+        this.updateById(paper);
         int sort = 1;
         for (ExamRuleDTO rule : ruleList) {
             if (rule.getQuCount() == null || rule.getQuCount() == 0) {
@@ -286,7 +186,7 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
             }
             List<RepoQuDetailDTO> quList = repoQuService.listForPaper(
                     rule.getRepoId(), rule.getQuType(), rule.getQuCount());
-            paperQuService.saveToPaper(paper.getId(), rule.getQuScore(), quList, sort);
+            paperQuService.saveToPaper(paper.getId(), rule.getQuScore(), quList, sort, Integer.valueOf(1).equals(exam.getOptionShuffle()));
             sort += quList.size();
         }
 
@@ -296,61 +196,64 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
         return paper.getId();
     }
 
-    @Transactional(rollbackFor = Exception.class)
+    /** Quartz and the recovery scanner use this deadline-only path. */
+    @Transactional(rollbackFor = Exception.class, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 20)
     @Override
     public void handPaper(String paperId) {
+        Paper paper = paperAccessService.lockForUpdate(paperId);
+        if (!Integer.valueOf(0).equals(paper.getHandState())) return;
+        if (paper.getLimitTime() == null || paper.getLimitTime().after(new Date())) return;
+        settle(paper, true);
+    }
 
-        Paper paper = this.getById(paperId);
-
-        if (paper == null) {
-            throw new ServiceException("试卷不存在或已被删除！");
-        }
-
-        if (paper.getHandState().equals(1)) {
-            return;
-        }
-
-        // 统计分数
-        BigDecimal userScore = paperQuService.sumTotalScore(paperId);
-        paper.setUserScore(userScore);
-        paper.setHandState(1);
-        paper.setHandTime(new Date());
-        // 考试用时
-        long useTime = (System.currentTimeMillis() - paper.getCreateTime().getTime()) / 1000 / 60;
-        paper.setUserTime((int) useTime);
-
-        // 最低交卷时间校验
-        int handMin = examService.findHandMin(paper.getExamId());
-        if (handMin > 0 && useTime < handMin) {
-            throw new ServiceException(String.format("请至少作答%s分钟后再交卷！", handMin));
-        }
-
-        // 是否合格
-        boolean passed = DecimalUtils.ge(userScore, paper.getQualifyScore());
-        paper.setPassed(passed);
-        this.updateById(paper);
-
-        // 汇总表
-        examRecordService.joinRecord(paper.getExamId(), paper.getUserId(), paperId, userScore, passed);
-
+    @Transactional(rollbackFor = Exception.class, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 20)
+    @Override
+    public void handPaper(String paperId, String userId) {
+        Paper paper = paperAccessService.lockForUpdate(paperId);
+        if (userId == null || !userId.equals(paper.getUserId())) throw new ServiceException("无权访问该试卷！");
+        if (!Integer.valueOf(0).equals(paper.getHandState())) return;
         if (StringUtils.isNotBlank(paper.getAssignmentId())) {
             ExamAssignment assignment = examAssignmentMapper.selectByIdForUpdate(paper.getAssignmentId());
-            if (assignment != null && paperId.equals(assignment.getPaperId())) {
-                Date completedAt = new Date();
-                assignment.setStatus(AssignmentStatus.COMPLETED);
-                assignment.setSubmittedAt(completedAt);
-                assignment.setCompletedAt(completedAt);
+            if (AssignmentStatus.DISABLED.equals(assignment.getStatus())) {
+                throw new ServiceException("考核已停用！");
+            }
+        }
+        boolean expired = paper.getLimitTime() != null && !paper.getLimitTime().after(new Date());
+        settle(paper, expired);
+    }
+
+    private void settle(Paper paper, boolean forced) {
+        Date now = new Date();
+        long elapsed = Math.max(0, (now.getTime() - paper.getCreateTime().getTime()) / 60_000);
+        int minimum = paper.getHandMinSnapshot() == null ? 0 : paper.getHandMinSnapshot();
+        if (!forced && elapsed < minimum) {
+            throw new ServiceException(String.format("请至少作答%s分钟后再交卷！", minimum));
+        }
+        boolean pending = paperQuService.count(new QueryWrapper<com.yf.modules.exam.paper.entity.PaperQu>()
+                .eq("paper_id", paper.getId()).and(w -> w.isNull("qu_type").or().notIn("qu_type", "radio", "multi", "judge"))) > 0;
+        BigDecimal score = paperQuService.sumTotalScore(paper.getId());
+        paper.setUserScore(score);
+        paper.setHandState(1);
+        paper.setHandTime(now);
+        long usedUntil = forced && paper.getLimitTime() != null
+                ? Math.min(now.getTime(), paper.getLimitTime().getTime()) : now.getTime();
+        paper.setUserTime((int) Math.max(0, (usedUntil - paper.getCreateTime().getTime()) / 60_000));
+        paper.setGradingState(pending ? "PENDING" : "NOT_REQUIRED");
+        paper.setPassed(pending ? null : DecimalUtils.ge(score, paper.getQualifyScore()));
+        this.updateById(paper);
+        if (!pending) {
+            examRecordService.joinRecord(paper.getExamId(), paper.getUserId(), paper.getId(), score, paper.getPassed());
+        }
+        if (StringUtils.isNotBlank(paper.getAssignmentId())) {
+            ExamAssignment assignment = examAssignmentMapper.selectByIdForUpdate(paper.getAssignmentId());
+            // Disabling an assignment must not be undone by its old timer.
+            if (!AssignmentStatus.DISABLED.equals(assignment.getStatus())) {
+                assignment.setStatus(pending ? AssignmentStatus.PENDING_REVIEW : AssignmentStatus.COMPLETED);
+                assignment.setSubmittedAt(now);
+                if (!pending) assignment.setCompletedAt(now);
                 examAssignmentMapper.updateById(assignment);
             }
         }
-
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    @Override
-    public void handPaper(String paperId, String userId) {
-        paperAccessService.requireOwner(paperId, userId);
-        this.handPaper(paperId);
     }
 
     @Override
@@ -374,24 +277,4 @@ public class PaperServiceImpl extends ServiceImpl<PaperMapper, Paper> implements
         return baseMapper.selectPaperDetail(id);
     }
 
-    /**
-     * 查找是否有进行中的考试
-     *
-     * @param examId
-     * @param userId
-     * @return
-     */
-    private String findProcess(String examId, String userId) {
-        //查询条件
-        QueryWrapper<Paper> wrapper = new QueryWrapper<>();
-        wrapper.lambda().eq(Paper::getExamId, examId)
-                .eq(Paper::getUserId, userId)
-                .eq(Paper::getHandState, 0);
-
-        Paper paper = this.getOne(wrapper, false);
-        if (paper != null) {
-            return paper.getId();
-        }
-        return null;
-    }
 }

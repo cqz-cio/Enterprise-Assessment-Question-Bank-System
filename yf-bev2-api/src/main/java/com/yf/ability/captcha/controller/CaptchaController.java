@@ -43,17 +43,13 @@ public class CaptchaController extends BaseController {
     })
     public void captcha(HttpServletResponse response, @RequestParam("key") String key) throws Exception {
 
-        // 设置请求头为输出图片类型
-        response.setContentType("image/png");
-        response.setHeader("Cache-Control", "no-store");
-
         TransparentCaptcha captcha = new TransparentCaptcha(130, 48, 4, 20);
         String code = captcha.getCode();
+        captchaService.saveCaptcha(key, code.toLowerCase(java.util.Locale.ROOT));
+        response.setContentType("image/png");
+        response.setHeader("Cache-Control", "no-store");
         BufferedImage image = (BufferedImage) captcha.createImage(code);
         ImageIO.write(image, "png", response.getOutputStream());
-
-        // 存入REDIS
-        captchaService.saveCaptcha(key, code.toLowerCase());
 
     }
 

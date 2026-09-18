@@ -37,6 +37,13 @@ public class PaperQuController extends BaseController {
 
     private final PaperQuService baseService;
 
+    @Operation(summary = "保存简答题文字答案")
+    @RequiresPermissions("exam:client:enter")
+    @PostMapping("/fill-text-answer")
+    public ApiRest<PaperQuFillRespDTO> fillTextAnswer(@jakarta.validation.Valid @RequestBody com.yf.modules.exam.paper.dto.request.PaperTextAnswerDTO request) {
+        return success(baseService.fillTextAnswer(request, UserUtils.getUserId()));
+    }
+
     /**
      * 试题详情
      *

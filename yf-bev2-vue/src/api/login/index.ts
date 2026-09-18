@@ -25,3 +25,7 @@ export const routesApi = (data: any) => {
     data
   })
 }
+
+export const sessionInfoApi = () => {
+  return request.post({ url: '/api/sys/user/info' })
+}

@@ -147,6 +147,89 @@ class QuestionImportServiceImplTest {
         assertTrue(response.getHeader("Content-Disposition").contains("filename*=UTF-8''"));
     }
 
+    @Test
+    void emptyTemplateIsRejected() throws Exception {
+        when(repoQuService.list(any(Wrapper.class))).thenReturn(List.of());
+        MockMultipartFile file = workbook();
+        org.junit.jupiter.api.Assertions.assertThrows(com.yf.base.api.exception.ServiceException.class,
+                () -> service.validate("repo-1", file));
+        org.mockito.Mockito.verify(repoQuService, org.mockito.Mockito.never()).save(any(RepoQuDetailDTO.class));
+    }
+
+    @Test
+    void importReportPreservesOnlyOriginalIssuesAndRowNumbers() throws Exception {
+        service = new QuestionImportServiceImpl(repoService, repoQuService, redisService,
+                new QuestionImportWorkbookService());
+        RepoQu existing = new RepoQu();
+        existing.setQuType("judge");
+        existing.setContent("重复题");
+        when(repoQuService.list(any(Wrapper.class))).thenReturn(List.of(existing));
+        when(redisService.tryLock("repo:qu:import:repo-1", 60_000L, 1, 100L)).thenReturn(true);
+        QuestionImportResultRespDTO result = service.importQuestions("repo-1", workbook(
+                row("1", "判断题", "有效题", "", "", "", "", "", "", "正确", "简单", "", "", ""),
+                row("2", "判断题", "重复题", "", "", "", "", "", "", "错误", "简单", "", "", ""),
+                row("3", "判断题", "错误题", "", "", "", "", "", "", "true", "简单", "", "", "")
+        ));
+        assertEquals(1, result.getSuccessCount());
+        assertEquals(1, result.getDuplicateCount());
+        assertEquals(1, result.getFailureCount());
+        verify(repoQuService).save(any(RepoQuDetailDTO.class));
+        try (XSSFWorkbook report = new XSSFWorkbook(new ByteArrayInputStream(
+                java.util.Base64.getDecoder().decode(result.getErrorReportBase64())))) {
+            Sheet sheet = report.getSheet("错误数据");
+            assertEquals(2, sheet.getLastRowNum());
+            assertEquals("重复题", sheet.getRow(1).getCell(2).getStringCellValue());
+            assertEquals("3", sheet.getRow(1).getCell(17).getStringCellValue());
+            assertEquals("4", sheet.getRow(2).getCell(17).getStringCellValue());
+        }
+    }
+
+    @Test
+    void reportFailureDoesNotPersistAndReleasesLock() throws Exception {
+        when(repoQuService.list(any(Wrapper.class))).thenReturn(List.of());
+        when(redisService.tryLock("repo:qu:import:repo-1", 60_000L, 1, 100L)).thenReturn(true);
+        when(workbookService.createErrorReport(any())).thenThrow(new java.io.IOException("test"));
+        MockMultipartFile file = workbook(
+                row("1", "判断题", "有效题", "", "", "", "", "", "", "正确", "简单", "", "", ""),
+                row("2", "判断题", "错误题", "", "", "", "", "", "", "true", "简单", "", "", ""));
+        org.junit.jupiter.api.Assertions.assertThrows(com.yf.base.api.exception.ServiceException.class,
+                () -> service.importQuestions("repo-1", file));
+        org.mockito.Mockito.verify(repoQuService, org.mockito.Mockito.never()).save(any(RepoQuDetailDTO.class));
+        verify(redisService).unlock("repo:qu:import:repo-1");
+    }
+
+    @Test
+    void wordImportUsesSharedValidationAndPersistsOnlyValidQuestions() throws Exception {
+        service = new QuestionImportServiceImpl(repoService, repoQuService, redisService, new QuestionImportWorkbookService());
+        when(repoQuService.list(any(Wrapper.class))).thenReturn(List.of());
+        when(redisService.tryLock("repo:qu:import:repo-1", 60_000L, 1, 100L)).thenReturn(true);
+        MockMultipartFile file = new MockMultipartFile("file", "questions.docx", "application/octet-stream",
+                WordQuestionParserTest.document("1.【单选题】选择题", "A. 第一项", "B. 第二项", "答案：A", "难度：简单",
+                        "2.【判断题】没有答案", "难度：简单", "3.【单选题】选择题", "A. 第一项", "B. 第二项", "答案：A"));
+        var preview = service.validateWord("repo-1", file, "一般");
+        assertEquals(1, preview.getValidCount());
+        assertEquals(1, preview.getFailureCount());
+        assertEquals(1, preview.getDuplicateCount());
+        assertEquals(3, preview.getQuestions().size());
+        assertEquals("第一项", preview.getQuestions().get(0).getOptions().get(0));
+        var result = service.importWord("repo-1", file, "一般");
+        assertEquals(1, result.getSuccessCount());
+        assertTrue(result.getErrorReportBase64().length() > 0);
+        verify(repoQuService).save(any(RepoQuDetailDTO.class));
+    }
+
+    @Test
+    void wordMissingDifficultyIsExplicitAndOldDocIsRejected() throws Exception {
+        when(repoQuService.list(any(Wrapper.class))).thenReturn(List.of());
+        byte[] doc = WordQuestionParserTest.document("1.【判断题】题干", "答案：正确");
+        var file = new MockMultipartFile("file", "questions.docx", "application/octet-stream", doc);
+        assertEquals(1, service.validateWord("repo-1", file, null).getFailureCount());
+        assertEquals(1, service.validateWord("repo-1", file, "一般").getValidCount());
+        var old = new MockMultipartFile("file", "questions.doc", "application/octet-stream", doc);
+        org.junit.jupiter.api.Assertions.assertThrows(com.yf.base.api.exception.ServiceException.class,
+                () -> service.validateWord("repo-1", old, "一般"));
+    }
+
     private MockMultipartFile workbook(String[]... values) throws Exception {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {

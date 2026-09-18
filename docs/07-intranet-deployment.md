@@ -129,3 +129,21 @@ Docker Compose 生产配置中，MySQL 和 Redis 不应使用 `ports` 映射到�
 - 不使用破坏性 Git 命令代替部署回滚。
 - 涉及数据格式变化时，回滚方案必须同时覆盖代码和数据。
 
+## 10. 当前 Windows 本地启动方式（2026-09-18）
+
+项目根目录执行以下命令；Java 17、已有 JAR 和 Compose 中 MySQL/Redis 须先可用。脚本只管理本项目后端，不负责前端、Docker 或开机自启。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-backend.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\stop-backend.ps1
+# 明确重启已运行的后端
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-backend.ps1 -Restart
+```
+
+普通启动发现本项目已运行会直接提示，不重复启动。停止前核对完整项目路径、PID 与创建时间，不停止无关 Java 或占用 8080 的其他程序。升级/重启应避开正在答题时段；脚本本身不判断是否有人答题。后台隐藏运行，日志位于 `work/codex-logs/`，最新 PID、JAR 和日志路径记录在 `.local/backend-process.json`。启动最多等待 90 秒，日志 60 秒无进展提前失败并清理本次失败后端；健康检查通过才报告 ready。脚本临时注入原密钥给 Java，随后还原调用进程环境；日志默认覆盖为 INFO。
+
+原两项密钥已加密保存到 `.local/backend-secrets.clixml`，目录权限限当前 Windows 用户及 SYSTEM，且 `.local/` 已排除 Git。日常启动不再需要手工设置密钥环境变量。初始化命令 `initialize-backend-secrets.ps1` 仅用于已有原密钥的初次保存：要求原启动 PowerShell 已有 JWT_SECRET 与 ASSIGNMENT_CODE_PEPPER；已有有效文件直接校验，遇到不同原值拒绝覆盖。不得为解决启动错误临时生成新值，否则旧考核码会失效。
+
+DPAPI 文件绑定同一 Windows 用户和计算机，不能作为跨机器灾备；换机器/重装前须通过受控密钥管理渠道另行备份原密钥，并演练恢复。本轮已验证清空环境变量的新 PowerShell 重启、原 JWT 与考核码兼容；未进行物理重启或跨机器恢复。加密机制见 [Microsoft Export-Clixml 文档](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-clixml)。
+
+当前认证忽略转发 IP 头，Vite/反向代理后的用户可能共用一个限流来源。正式上线必须结合可信代理网络、入口防刷和峰值并发调整，不可简单打开任意 Forwarded 头信任。开发 profile、数据库端口隔离、HTTPS 和完整备份仍按前文生产要求另行落实。

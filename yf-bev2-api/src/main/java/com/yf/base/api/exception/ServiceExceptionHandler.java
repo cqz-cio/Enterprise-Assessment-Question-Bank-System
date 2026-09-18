@@ -27,6 +27,17 @@ import static java.util.regex.Pattern.compile;
 @Log4j2
 @RestControllerAdvice
 public class ServiceExceptionHandler {
+    @ExceptionHandler(com.yf.ability.auth.AuthRateLimitException.class)
+    public org.springframework.http.ResponseEntity<ApiRest<?>> rateLimited(com.yf.ability.auth.AuthRateLimitException e) {
+        ApiRest<?> body = new ApiRest<>(); body.setCode(429); body.setMsg(e.getMessage());
+        return org.springframework.http.ResponseEntity.status(429).header("Retry-After", String.valueOf(e.getRetryAfter())).body(body);
+    }
+    @ExceptionHandler(com.yf.ability.auth.AuthUnavailableException.class)
+    public org.springframework.http.ResponseEntity<ApiRest<?>> authUnavailable(com.yf.ability.auth.AuthUnavailableException e) {
+        ApiRest<?> body = new ApiRest<>(); body.setCode(503); body.setMsg(e.getMessage());
+        return org.springframework.http.ResponseEntity.status(503).body(body);
+    }
+
 
     /**
      * 应用到所有@RequestMapping注解方法，在其执行之前初始化数据绑定器
@@ -88,7 +99,8 @@ public class ServiceExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.OK)
     public ApiRest<?> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
-        log.error(e);
+        // Do not log rejected answer text, credentials or candidate data embedded in BindingResult.
+        log.warn("Request validation failed: object={}, errors={}", e.getBindingResult().getObjectName(), e.getBindingResult().getErrorCount());
         ApiRest<?> apiRest = new ApiRest();
         apiRest.setCode(1);
         apiRest.setMsg(e.getBindingResult().getFieldError().getDefaultMessage());

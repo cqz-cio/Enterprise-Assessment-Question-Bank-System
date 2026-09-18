@@ -9,6 +9,6 @@ import ResultWithDetail from '@/views/Exam/Exam/Client/components/ResultWithDeta
 
 import { useRoute } from 'vue-router'
 const route = useRoute()
-const paperId = route.query.id
+const paperId = typeof route.query.id === 'string' ? route.query.id : ''
 const mode = route.query.mode
 </script>

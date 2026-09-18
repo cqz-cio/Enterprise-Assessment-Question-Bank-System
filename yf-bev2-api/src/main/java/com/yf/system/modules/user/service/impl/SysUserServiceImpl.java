@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yf.ability.Constant;
+import com.yf.ability.auth.AuthRateLimiter;
 import com.yf.ability.captcha.service.CaptchaService;
 import com.yf.ability.redis.service.RedisService;
 import com.yf.ability.shiro.dto.SysUserLoginDTO;
@@ -72,6 +73,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     private final JwtUtils jwtUtils;
 
+    private final AuthRateLimiter authRateLimiter;
+
 
     @Override
     public SysUserSaveReqDTO detail(String id) {
@@ -133,20 +136,20 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     public SysUserLoginDTO login(SysUserLoginReqDTO reqDTO) {
 
-        // 校验图形验证码
-        if (!StringUtils.isBlank(reqDTO.getCaptchaKey())) {
-            boolean check = captchaService.checkCaptcha(reqDTO.getCaptchaKey(), reqDTO.getCaptchaValue());
-            if (!check) {
-                throw new ServiceException("图形验证码不正确或已失效！");
-            }
+        if (!captchaService.checkCaptcha(reqDTO.getCaptchaKey(), reqDTO.getCaptchaValue())) {
+            throw new ServiceException("图形验证码不正确或已失效，请刷新重试！");
         }
 
         QueryWrapper<SysUser> wrapper = new QueryWrapper<>();
         wrapper.lambda().eq(SysUser::getUserName, reqDTO.getUserName());
         SysUser user = this.getOne(wrapper, false);
 
-        // 校验用户状态&密码
-        return this.checkAndLogin(user, reqDTO.getPassword());
+        // Use the stored user ID so database-equivalent account spellings share one limit.
+        String identity = user == null ? StringUtils.trimToEmpty(reqDTO.getUserName()).toLowerCase(java.util.Locale.ROOT) : user.getId();
+        String throttleKey = authRateLimiter.check("login-account", identity, 10, 600);
+        SysUserLoginDTO response = this.checkAndLogin(user, reqDTO.getPassword());
+        authRateLimiter.clear(throttleKey);
+        return response;
     }
 
 
@@ -157,27 +160,12 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      */
     private SysUserLoginDTO checkAndLogin(SysUser user, String password) {
 
-        if (user == null) {
-            throw new ServiceException(ApiError.ERROR_90010001);
+        if (user == null || StringUtils.isBlank(password)
+                || !PassHandler.checkPass(password, user.getSalt(), user.getPassword())) {
+            throw new ServiceException("账号或密码不正确！");
         }
-
-        // 被禁用
-        if (UserState.DISABLED.equals(user.getState())) {
-            throw new ServiceException(ApiError.ERROR_90010005);
-        }
-
-        // 待审核
-        if (UserState.AUDIT.equals(user.getState())) {
-            throw new ServiceException(ApiError.ERROR_90010006);
-        }
-
-        if (StringUtils.isBlank(password)) {
-            throw new ServiceException(ApiError.ERROR_90010002);
-        }
-        boolean pass = PassHandler.checkPass(password, user.getSalt(), user.getPassword());
-        if (!pass) {
-            throw new ServiceException(ApiError.ERROR_90010002);
-        }
+        if (UserState.DISABLED.equals(user.getState())) throw new ServiceException(ApiError.ERROR_90010005);
+        if (UserState.AUDIT.equals(user.getState())) throw new ServiceException(ApiError.ERROR_90010006);
 
         return this.setToken(user);
     }

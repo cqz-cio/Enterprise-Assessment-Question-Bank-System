@@ -90,6 +90,15 @@ public class ExamServiceImpl extends ServiceImpl<ExamMapper, Exam> implements Ex
                 throw new ServiceException("同一部门、岗位、场景和目标职级只能启用一个考核模板！");
             }
         }
+        com.yf.modules.exam.paper.service.ObjectivePaperPolicy.validateRules(reqDTO.getRuleList());
+        java.math.BigDecimal total = reqDTO.getRuleList().stream().filter(r -> r.getQuCount() > 0)
+                .map(r -> r.getQuScore().multiply(java.math.BigDecimal.valueOf(r.getQuCount())))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        if (reqDTO.getQualifyScore() == null || reqDTO.getQualifyScore().signum() < 0
+                || reqDTO.getQualifyScore().compareTo(total) > 0) {
+            throw new ServiceException("及格分必须介于零与试卷总分之间！");
+        }
+        reqDTO.setTotalScore(total);
         // 保存基本信息
         Exam entity = new Exam();
         BeanMapper.copy(reqDTO, entity);

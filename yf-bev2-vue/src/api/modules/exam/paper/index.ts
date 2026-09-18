@@ -39,6 +39,9 @@ export const fillAnswerApi = (data: any) => {
   })
 }
 
+export const fillTextAnswerApi = (data: { paperId: string; quId: string; answerText: string }) =>
+  request.post({ url: '/api/exam/paper/qu/fill-text-answer', data })
+
 // 考试校验
 export const preCheckApi = (data: any) => {
   return request.post({
@@ -61,7 +64,6 @@ export const realTimeStateApi = (data: any) => {
     data
   })
 }
-
 
 // 考试详情-试题列表
 export const paperFullDetailApi = (data: any) => {
