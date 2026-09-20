@@ -61,20 +61,23 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
     private final SysUserRoleService sysUserRoleService;
     private final PaperService paperService;
     private final AccessCodeManager accessCodeManager;
+    private final com.yf.modules.exam.assignment.importing.CandidateIdentityGuard candidateIdentityGuard;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CandidateCreateRespDTO createCandidate(CandidateCreateReqDTO reqDTO) {
+        candidateIdentityGuard.reserve(reqDTO.getCandidateNo(), reqDTO.getBatchNo());
         Position position = positionService.requireEnabled(reqDTO.getPositionId());
         positionService.requireDepartmentPosition(reqDTO.getDepartId(), position.getId());
-        Exam exam = examService.getOne(new LambdaQueryWrapper<Exam>()
+        List<Exam> matched = examService.list(new LambdaQueryWrapper<Exam>()
                 .eq(Exam::getDepartId, reqDTO.getDepartId())
                 .eq(Exam::getPositionId, position.getId())
                 .eq(Exam::getSceneType, AssessmentScene.INTERVIEW)
-                .eq(Exam::getTemplateStatus, 1), false);
-        if (exam == null) {
-            throw new ServiceException("该岗位未配置启用的入职/面试考核模板！");
+                .eq(Exam::getTemplateStatus, 1));
+        if (matched.size() != 1) {
+            throw new ServiceException("该部门岗位必须配置且仅配置一个启用的面试考核模板！");
         }
+        Exam exam = matched.get(0);
 
         Date validFrom = reqDTO.getValidFrom() == null ? new Date() : reqDTO.getValidFrom();
         Date expireAt = reqDTO.getExpireAt() == null
@@ -82,6 +85,7 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
         if (!expireAt.after(validFrom)) {
             throw new ServiceException("截止时间必须晚于可进入时间！");
         }
+        if (!expireAt.after(new Date())) throw new ServiceException("截止时间已过期！");
 
         String assignmentId = IdWorker.getIdStr();
         SysUser candidate = buildCandidateUser(assignmentId, reqDTO);

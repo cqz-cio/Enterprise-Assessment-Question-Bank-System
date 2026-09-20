@@ -346,3 +346,10 @@ yf-bev2-api/src/main/resources/db/migration/
 ## 成绩报表权限迁移（V021，2026-09-20）
 
 无业务表字段变化。新增成绩查询菜单及 `exam:results:view`、`exam:results:export` 权限，授予 admin/HR。报表从 el_exam_assignment + el_paper 读取一对一记录，并核对 assignment_id/paper_id/user_id/exam_id；分配部门决定管理数据范围。题目快照汇总客观分，终审后才展示主观分和最终总分；不改写已有成绩。
+
+
+## 候选人批量导入迁移 V024（2026-09-20）
+
+新增 `el_candidate_issue_key(candidate_no VARCHAR(64), batch_no VARCHAR(64))`，两列联合主键、utf8mb4_unicode_ci，不区分大小写。回填历史候选人编号及批次的去重集合，保留全部历史分配（包括已有重复），不改试卷和结果。新手工/批量发放在同一事务中先占用防重键；发放失败则回滚。禁止通过删除防重键开启原分配重考。
+
+V024 同时新增候选人导入权限并授予 admin/HR。预览和本次明文口令仅在有上限、有到期时间的服务器内存中暂存，无新增明文持久化表。

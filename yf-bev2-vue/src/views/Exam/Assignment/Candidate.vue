@@ -1,6 +1,10 @@
 <template>
   <ContentWrap>
     <DataTable ref="table" :options="options" :query="query" @on-add="openCreate">
+      <template #actions>
+        <el-button v-hasPermi="['exam:assignment:candidate:import']" :loading="templateLoading" @click="downloadTemplate">下载模板</el-button>
+        <el-button v-hasPermi="['exam:assignment:candidate:import']" type="primary" @click="importVisible = true">Excel 批量导入</el-button>
+      </template>
       <template #search>
         <el-input v-model="query.params.subjectName" class="filter-item" placeholder="候选人姓名" />
         <DepartmentSelect v-model="query.params.departId" class="filter-item" @update:model-value="query.params.positionId = ''" />
@@ -30,6 +34,7 @@
     </el-dialog>
     <el-dialog v-model="codeVisible" title="测评口令" width="430px" :close-on-click-modal="false"><el-alert title="口令只展示本次，请立即安全发送给候选人" type="warning" :closable="false" /><div class="access-code">{{issuedCode}}</div><template #footer><el-button @click="copyCode">复制口令</el-button><el-button type="primary" @click="codeVisible=false">我已保存</el-button></template></el-dialog>
     <CandidateResultDialog v-model:visible="resultVisible" :assignment-id="resultAssignmentId" :candidate="resultCandidate" />
+    <CandidateImportDialog v-model:visible="importVisible" @imported="table?.reload()" />
   </ContentWrap>
 </template>
 <script lang="ts" setup>
@@ -38,6 +43,16 @@ import { ContentWrap } from '@/components/ContentWrap'; import { DataTable } fro
 import { listByDepartmentApi } from '@/api/modules/exam/position'; import { createCandidateApi,resetCandidateCodeApi,changeAssignmentStatusApi } from '@/api/modules/exam/assignment'
 import DepartmentSelect from '@/views/Exam/components/DepartmentSelect.vue'
 import CandidateResultDialog from '@/views/Exam/Assignment/components/CandidateResultDialog.vue'
+import CandidateImportDialog from '@/views/Exam/Assignment/components/CandidateImportDialog.vue'
+import { downloadCandidateImport } from '@/api/modules/exam/assignment/candidateImport'
+const importVisible = ref(false)
+const templateLoading = ref(false)
+async function downloadTemplate() {
+  templateLoading.value = true
+  try { await downloadCandidateImport('template') }
+  catch (e: any) { ElMessage.error(e.message || '下载失败') }
+  finally { templateLoading.value = false }
+}
 const table=ref();const formRef=ref<FormInstance>();const queryPositions=ref<any[]>([]);const formPositions=ref<any[]>([]);const createVisible=ref(false);const codeVisible=ref(false);const resultVisible=ref(false);const resultAssignmentId=ref('');const resultCandidate=ref<Record<string,any>>({});const saving=ref(false);const issuedCode=ref('')
 const statusText:Record<string,string>={ASSIGNED:'待测评',STARTED:'进行中',PENDING_REVIEW:'待阅卷',COMPLETED:'已完成',DISABLED:'已停用',EXPIRED:'已过期'}
 const query=ref<TableQueryType>({current:1,size:10,params:{subjectName:'',departId:'',positionId:'',batchNo:'',status:''}});const options=ref<OptionsType>({listUrl:'/api/exam/assignment/candidate/paging',add:{enable:true,permission:['exam:assignment:candidate:add']}})

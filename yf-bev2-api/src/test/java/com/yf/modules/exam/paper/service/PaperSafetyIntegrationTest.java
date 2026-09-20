@@ -282,7 +282,7 @@ class PaperSafetyIntegrationTest {
             return new PaperServiceImpl(e,r,q,pq,records,j,access,a);
         }
         @Bean ExamAssignmentService assignments(ExamService e, PaperService p) {
-            return new ExamAssignmentServiceImpl(mock(PositionService.class),e,mock(SysUserService.class),mock(SysUserRoleService.class),p,mock(AccessCodeManager.class));
+            return new ExamAssignmentServiceImpl(mock(PositionService.class),e,mock(SysUserService.class),mock(SysUserRoleService.class),p,mock(AccessCodeManager.class),mock(com.yf.modules.exam.assignment.importing.CandidateIdentityGuard.class));
         }
     }
 }

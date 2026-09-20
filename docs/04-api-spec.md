@@ -277,30 +277,28 @@ Permission: exam:assignment:candidate:add
 }
 ```
 
-### 4.2 候选人 Excel 导入
+### 4.2 候选人 Excel 批量导入（已实现，D-035）
 
-```http
-POST /api/exam/assignment/candidate/import
-Content-Type: multipart/form-data
-Permission: exam:assignment:candidate:import
-```
+所有接口位于 `/api/exam/assignment/candidate`，采用 POST，必须登录并拥有 `exam:assignment:candidate:import` 权限。默认管理员和 HR 获得权限；员工、候选人不获得权限。
 
-表格建议列：
+| 路径 | 请求 | 响应 |
+| --- | --- | --- |
+| `/import-template` | 空 JSON | XLSX：候选人数据、填写说明、当前数据范围内的部门岗位编码参考 |
+| `/import-validate` | multipart `file` | 校验结果及随机 `taskId`；不创建候选人 |
+| `/import` | `{"taskId":"..."}` | 逐行提交后的最终结果；相同任务重试返回同一结果 |
+| `/import-error` | `{"taskId":"..."}` | 本任务的实际错误/重复行 XLSX，含原始行号和原因 |
+| `/import-codes` | `{"taskId":"..."}` | 已成功发放记录的 XLSX，含 6 位考核码和入口路径 |
+| `/import-close` | `{"taskId":"..."}` | 清除本任务暂存数据 |
 
-```text
-姓名* | 候选人编号* | 手机号* | 邮箱* | 部门编码* | 岗位编码* | 批次* | 可进入时间* | 截止时间*
-```
+模板工作表名为“候选人数据”，9 列依次为姓名、候选人编号、手机号、邮箱、部门编码、岗位编码、批次、生效时间、截止时间，全部必填。仅 XLSX，最大 5 MB/500 条，展开后最大 32 MB；不接受公式/错误单元格。时间采用 `yyyy-MM-dd HH:mm:ss`（上海时区），必须有效且截止时间尚未过去。编号和手机号按文本保存。
 
-采用部分成功策略：逐行校验，正确行在事务中正常导入，错误行不落库。响应必须包含总行数、成功数、失败数和错误报告下载地址；错误报告保留原始行号、候选人编号及逐行失败原因。
+响应包含 `taskId/fileName/expiresAt/committed/totalCount/validCount/successCount/failureCount/duplicateCount/rows`。每行包含 `rowNumber/values/candidateName/candidateNo/departName/positionName/examTitle/batchNo/validFrom/expireAt/status/message`；成功行额外有 `assignmentId/accessCode`。状态为 `VALID/ERROR/DUPLICATE/SUCCESS`。
 
-```json
-{
-  "totalCount": 100,
-  "successCount": 96,
-  "failureCount": 4,
-  "errorReportUrl": "/api/exam/assignment/candidate/import-error/download?taskId=import-task-id"
-}
-```
+仅对预览标记有效的行发放；提交前重新校验当前权限、部门岗位、唯一启用 INTERVIEW 模板和有效期。每行独立事务，正确行成功、错误行跳过；同一候选人编号与批次由数据库唯一键防重，手工发放也使用同一保护，不覆盖原分配。
+
+任务绑定创建者，其他账号即使有导入权限也不能读取、提交或关闭。个人范围可创建本人负责的候选人，本部门/下级部门/全量范围按当前数据库配置校验。下载及重复获取成功结果重新检查数据范围。所有个人数据和文件响应使用 `Cache-Control: no-store`。
+
+任务仅驻留当前后端内存，预览和完成后各保留 15 分钟；最多 100 个任务、每人 10 个，按分钟清理。关闭或后端重启即失效；多实例部署需要粘性路由。明文考核码不写数据库、Redis、日志或服务端文件，离开前下载清单；响应丢失可在同一任务内重试，重启后重传只跳过已有记录，必要时通过原重置口令入口恢复发放。
 
 ### 4.3 候选人列表
 
