@@ -599,35 +599,27 @@ Permission: exam:grading:view AND exam:grading:finalize
 
 候选人 `POST /api/exam/assignment/candidate/verify` 对 PENDING_REVIEW/COMPLETED 分配允许在原有效期内认证并返回结果入口，必须关联本人已提交试卷；不会恢复作答状态。仍禁止开新卷、重考或改答，停用/过期拒绝认证（D-031）。
 
-## 8. 成绩查询和导出
+## 8. 成绩查询和导出（2026-09-20 已实现）
 
-### 8.1 管理端结果分页
+独立报表按考核分配逐行展示；旧汇总按人员和模板聚合，不作为本报表数据源。
 
-可以扩展现有 `/api/exam/exam/record/paging`，也可以建立清晰的新接口：
+| POST 接口 | 权限 | 请求与返回 |
+| --- | --- | --- |
+| `/api/exam/results/paging` | `exam:results:view` | 筛选请求；返回 records,total,all,completed,pending |
+| `/api/exam/results/detail` | `exam:results:view` | `{id}`（试卷 ID）；返回单行结果 |
+| `/api/exam/results/options` | `exam:results:view` | 返回 departments、positions，元素 `{id,name}` |
+| `/api/exam/results/export-preview` | view 和 `exam:results:export` | 同一筛选请求；返回 total,pending,limit |
+| `/api/exam/results/export` | view 和 `exam:results:export` | 同一筛选请求；返回 XLSX 二进制 |
 
-```http
-POST /api/exam/report/result/paging
-Permission: exam:report:view
-```
+筛选：keyword（姓名/编号/工号）、subjectType、departId、positionId、sceneType、batchNo、title、state（ALL/COMPLETED/PENDING）、passed（boolean）、scoreMin、scoreMax、submittedFrom、submittedTo。current 默认 1，size 默认 10、最大 100；日期为上海时间 `yyyy-MM-dd HH:mm:ss`，含起止边界。分数支持零分和两位小数，反向范围拒绝。姓名、批次、考核名称包含匹配，通配符按字面处理。
 
-筛选字段：
+返回行字段：id、assignmentId、subjectName、subjectType、subjectNo、departName、positionName、sceneType、batchNo、title、objectiveScore、subjectiveScore、userScore、totalScore、qualifyScore、passed、gradingState、gradedCount、handTime、graderName、gradedAt。待阅卷的 subjectiveScore/userScore/passed 为 null 或省略，不能作为零分/未通过；分数和通过状态过滤只匹配最终结果。all/completed/pending 按其他筛选条件计算，不受 state 影响。
 
-```text
-subjectName, subjectType, positionId, sceneType, batchNo,
-examId, assignmentStatus, gradingState, passed,
-scoreMin, scoreMax, submittedFrom, submittedTo
-```
+所有操作共同验证当前登录身份在数据库中的最新部门及角色数据范围（不沿用会话中旧范围）：本人=分配创建者；本部门=分配部门；本部门及下级=组织编码前缀；全部=全部分配。身份/范围无效或需要部门但未配置时拒绝，不接受客户端身份覆盖。部门/岗位选项只来自权限范围内已交卷记录。试卷、分配、人员、模板四者必须一致；未交卷和无分配关联的旧卷不纳入新报表。已过期但交卷的记录继续提供管理查询。
 
-### 8.2 成绩导出
+导出与页面最后应用的筛选一致，包含全部页；下载时重新验证权限，在只读可重复读事务中查询最新数据。单次最多 10000 条，空数据和超限拒绝、不静默截断。响应 `Cache-Control: no-store`；失败为 JSON 业务错误，前端不保存为 Excel。
 
-```http
-POST /api/exam/report/result/export
-Permission: exam:report:export
-```
-
-导出当前筛选条件下的结果，不接受客户端上传任意结果行，防止越权导出。
-
-建议列：姓名、人员类型、岗位、场景、批次、考核名称、客观分、主观分、总分、是否通过、交卷时间、阅卷状态、阅卷人。
+18 列：姓名、人员类型、编号/工号、部门、岗位、场景、批次、考核名称、客观分、主观分、最终总分、满分、及格分、是否通过、交卷时间、阅卷状态、终审人、完成阅卷时间。待阅卷主观分、最终总分、是否通过留空。编号为文本并保留前导零，文本不作为公式执行；冻结表头并附筛选。不含手机、邮箱、考核码、题目、答案。
 
 ## 9. 建议错误码
 

@@ -341,3 +341,8 @@ yf-bev2-api/src/main/resources/db/migration/
 - 新建 `el_paper_grading_log`：`id/paper_id/paper_qu_id/grader_id` 为 VARCHAR(64)，`score_before/score_after` 为 DECIMAL(10,2)，`comment_before/comment_after` 为 VARCHAR(2000)，`action` 为 VARCHAR(32)，`create_time` 为 DATETIME。完成操作的 paper_qu_id 为空，action 为 GRADE/REGRADE/FINALIZE；索引 `(paper_id,create_time,id)`。
 - 评分事务先锁分配再锁试卷；完成时按用户行锁串行维护成绩汇总，重复完成不增加考试次数。全部 short 为 GRADED 才生成最终分数和 passed。
 - V020 明确日志表使用 `utf8mb4_general_ci`，匹配现有业务表，避免 MySQL 8 默认排序规则引起 ID 联表冲突。两项迁移都已由 Flyway 应用，不手工重复执行。
+
+
+## 成绩报表权限迁移（V021，2026-09-20）
+
+无业务表字段变化。新增成绩查询菜单及 `exam:results:view`、`exam:results:export` 权限，授予 admin/HR。报表从 el_exam_assignment + el_paper 读取一对一记录，并核对 assignment_id/paper_id/user_id/exam_id；分配部门决定管理数据范围。题目快照汇总客观分，终审后才展示主观分和最终总分；不改写已有成绩。

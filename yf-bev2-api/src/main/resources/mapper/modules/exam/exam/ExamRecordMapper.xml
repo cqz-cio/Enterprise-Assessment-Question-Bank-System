@@ -18,7 +18,7 @@
         SELECT rc.exam_id, rc.passed
         FROM el_exam_record rc
         INNER JOIN el_exam ex ON rc.exam_id = ex.id
-        INNER JOIN el_paper p ON p.id = rc.paper_id AND p.grading_state = 'NOT_REQUIRED'
+        INNER JOIN el_paper p ON p.id = rc.paper_id AND p.grading_state IN ('NOT_REQUIRED','GRADED') AND p.hand_state=1 AND p.user_id=rc.user_id AND p.exam_id=rc.exam_id
         WHERE rc.user_id = #{query.userId}
         <if test="query!=null">
             <if test="query.title!=null and query.title!=''">
@@ -33,23 +33,23 @@
 
     <select id="paging" resultMap="BaseResultMap">
         SELECT rc.* FROM el_exam_record rc INNER JOIN el_sys_user uc ON rc.user_id=uc.id INNER JOIN el_exam ee ON ee.id=rc.exam_id
-        INNER JOIN el_paper p ON p.id = rc.paper_id AND p.grading_state = 'NOT_REQUIRED'
+        INNER JOIN el_paper p ON p.id = rc.paper_id AND p.grading_state IN ('NOT_REQUIRED','GRADED') AND p.hand_state=1 AND p.user_id=rc.user_id AND p.exam_id=rc.exam_id
         <where>
             <if test="query!=null">
                 <if test="query.examId!=null and query.examId!=''">
                     AND rc.exam_id=#{query.examId}
                 </if>
                 <if test="query.userName!=null and query.userName!=''">
-                    AND (uc.real_name LIKE CONCAT('%', #{query.userName} '%') OR uc.user_name LIKE CONCAT('%',
-                    #{query.userName} '%'))
+                    AND (uc.real_name LIKE CONCAT('%', #{query.userName}, '%') OR uc.user_name LIKE CONCAT('%',
+                    #{query.userName}, '%'))
                 </if>
                 <if test="query.passed!=null">
                     AND rc.passed=#{query.passed}
                 </if>
-                <if test="query.scoreMin!=null and query.scoreMin>0 ">
+                <if test="query.scoreMin!=null ">
                     AND rc.max_score >= #{query.scoreMin}
                 </if>
-                <if test="query.scoreMax!=null and query.scoreMax>0 ">
+                <if test="query.scoreMax!=null ">
                     AND rc.max_score &lt;= #{query.scoreMax}
                 </if>
             </if>
