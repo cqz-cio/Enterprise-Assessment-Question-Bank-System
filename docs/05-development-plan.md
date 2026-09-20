@@ -349,3 +349,8 @@ feat(report): export filtered assessment results
 ## 2026-09-20：成绩查询和 Excel 导出
 
 已按批准预览实现数据范围受控的分配级成绩查询、详情和 18 列 XLSX 导出，V021 新增 admin/HR 菜单权限。待阅卷最终字段留空；零分筛选、跨页导出及 GRADED 旧汇总回归通过。全量后端 104 项、前端构建与 lint 通过，32 项旧类型问题未扩大。修改文件、迁移、API、真实 HTTP/MySQL、浏览器及清理结果见 `P1_RESULT_REPORT_DELIVERY.md`。下一项候选人 Excel 部分成功导入。
+
+
+## 2026-09-20：登录跳转故障修复
+
+修复 user/axios/tagsView 模块循环依赖中的顶层 store 初始化，改为运行时读取。登录会话恢复后可进入工作台并刷新；前端 pro 构建、改动文件 ESLint 通过。无迁移、接口或凭据变更。详见 AI_HANDOFF 第 19 节。

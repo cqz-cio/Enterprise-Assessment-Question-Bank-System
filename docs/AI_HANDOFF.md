@@ -211,3 +211,11 @@ Word 批量导入已实现并启动最新服务：规范 DOCX 模板、预校验
 - 后端全量 104 项通过，前端构建/lint 通过；32 项既有类型问题仍存在。真实 HTTP/MySQL 验收通过，测试数据已清理并核对原记录数。浏览器验收等待本次验证码授权，尚未完成；下一会话优先补真实页面交互与截图比对，详见交付文档。
 - 原 Maven 后端已切换为标准脚本管理的 JAR，密钥保持不变。备份 `work/backups/20260920-092130-before-report.sql`，运行记录 `.local/backend-process.json`。
 - 下一步候选人 Excel；正式上线前先做生产部署专项。AGENTS.md 和 patches/ 为已有未跟踪内容，继续保留，不纳入本次提交。
+
+
+## 19. 登录后无法跳转修复（2026-09-20）
+
+- 用户反馈账号密码正确但停留登录页。浏览器确认 `Cannot access 'useUserStoreWithOut' before initialization`：user → 登录 API → axios → tagsView → user 的依赖环在模块顶层提前创建 store，热更新时触发初始化错误。
+- 将 axios、tagsView、user 三处跨模块 store 访问延迟到请求拦截器或 action 内，并为清理标签时的空用户信息加保护。未改密码、验证码策略、后端接口或数据库；无新增迁移。
+- 用户自行建立的有效会话经刷新后正常进入工作台，再次刷新验证成功，未代填或提交验证码。改动文件 ESLint 无错误/警告，pro 构建通过；日志 `work/codex-logs/20260920-110041-login-cycle-lint.log`、`20260920-105949-login-cycle-build.log`。
+- 本次仅验证登录跳转恢复，不代表第 18 节成绩导出的全部页面验收已完成。另观察到现有菜单 component=1/11 的缺失组件控制台提示，不阻止工作台进入，待后续核对菜单配置。

@@ -6,8 +6,6 @@ import { useStorage } from '@/hooks/web/useStorage'
 import { resetRouter } from '@/router'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 
-const permissionStore = usePermissionStoreWithOut()
-
 const { getStorage, setStorage, removeStorage, clear } = useStorage()
 
 export interface UserState {
@@ -61,7 +59,7 @@ export const useUserStore = defineStore('userInfo', {
       })
       setStorage('roleRouters', [])
       setStorage('candidateAssignment', data)
-      permissionStore.setIsAddRouters(true)
+      usePermissionStoreWithOut().setIsAddRouters(true)
     },
     // 用户登录
     logout(): Promise<unknown> {
@@ -73,7 +71,7 @@ export const useUserStore = defineStore('userInfo', {
             clear()
             // 重置静态路由表
             resetRouter()
-            permissionStore.setIsAddRouters(false)
+            usePermissionStoreWithOut().setIsAddRouters(false)
             // 清理数据
             this.setUserInfo({})
             resolve()

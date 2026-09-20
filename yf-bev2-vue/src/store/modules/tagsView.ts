@@ -6,7 +6,6 @@ import { store } from '../index'
 import { findIndex } from '@/utils'
 import { useStorage } from '@/hooks/web/useStorage'
 import { useUserStoreWithOut } from '@/store/modules/user'
-const userStore = useUserStoreWithOut()
 
 const { getStorage } = useStorage()
 
@@ -94,8 +93,10 @@ export const useTagsViewStore = defineStore('tagsView', {
     },
     // 删除所有tag
     delAllVisitedViews() {
+      // Resolve stores during actions, after the module graph has initialized.
+      const userStore = useUserStoreWithOut()
       // const affixTags = this.visitedViews.filter((tag) => tag.meta.affix)
-      this.visitedViews = getStorage(userStore.getUserInfo.id || '')
+      this.visitedViews = getStorage(userStore.getUserInfo?.id || '')
         ? this.visitedViews.filter((tag) => tag?.meta?.affix)
         : []
     },

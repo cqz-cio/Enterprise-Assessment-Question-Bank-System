@@ -3,12 +3,9 @@ import config from './config'
 
 import { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig, RequestConfig } from './types'
 import { ElMessage } from 'element-plus'
-import { useTagsViewStore } from '@/store/modules/tagsView'
+import { useTagsViewStoreWithOut } from '@/store/modules/tagsView'
 import router from '@/router'
 import { useUserStoreWithOut } from '@/store/modules/user'
-
-const userStore = useUserStoreWithOut()
-const tagsViewStore = useTagsViewStore()
 
 export const PATH_URL = import.meta.env.VITE_API_HOST || ''
 const codeSuccess = 0
@@ -22,7 +19,8 @@ const axiosInstance: AxiosInstance = axios.create({
 axiosInstance.interceptors.request.use((res: InternalAxiosRequestConfig) => {
   const controller = new AbortController()
   const url = res.url || ''
-  const userInfo = userStore.getUserInfo
+  // Login APIs import this module through the user store; defer access until a request.
+  const userInfo = useUserStoreWithOut().getUserInfo
   // 传入token
   if (userInfo && userInfo.token && res && res.headers) {
     res.headers['token'] = userInfo.token
@@ -51,12 +49,14 @@ axiosInstance.interceptors.response.use(
 
     // 会话超时
     if (resCode === codeOverdue) {
-      userStore.logout().then(() => {
-        // 清理标签页
-        tagsViewStore.delAllViews()
-        // 去登录页
-        router.replace({ name: 'Login' })
-      })
+      useUserStoreWithOut()
+        .logout()
+        .then(() => {
+          // 清理标签页
+          useTagsViewStoreWithOut().delAllViews()
+          // 去登录页
+          router.replace({ name: 'Login' })
+        })
     }
 
     // 响应错误
