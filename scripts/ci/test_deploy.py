@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import shlex
 from pathlib import Path
 import tempfile
 import unittest
@@ -141,6 +142,29 @@ class DeploymentTransactionTest(unittest.TestCase):
         self.run.assert_not_called()
         self.backup.assert_not_called()
 
+    @unittest.skipUnless(os.name == 'posix', 'Linux upload ownership')
+    def test_prepare_seeds_only_jar_and_rejects_reuse(self):
+        import pwd
+        incoming = self.base / 'incoming'
+        incoming.mkdir()
+        (self.base / 'secrets').mkdir()
+        (self.base / 'secrets/app.env').write_text('private-fixture')
+        release_id = '123-1-' + 'a'*12
+        with patch.object(deployment, 'INCOMING', incoming), patch.object(deployment.os, 'chown'), \
+                patch.object(pwd, 'getpwnam', return_value=pwd.getpwuid(os.getuid())):
+            deployment.prepare(release_id)
+            copied = incoming / release_id
+            self.assertEqual(['yf-bev2-api.jar'], [p.name for p in copied.iterdir()])
+            self.assertEqual(self.old.read_bytes(), (copied / 'yf-bev2-api.jar').read_bytes())
+            with self.assertRaisesRegex(ValueError, 'already exists'):
+                deployment.prepare(release_id)
+        self.assertEqual(self.old, (self.base / 'current.jar').resolve())
+        self.run.assert_not_called()
+
+    def test_prepare_rejects_path_traversal_before_copy(self):
+        with self.assertRaisesRegex(ValueError, 'Invalid release ID'):
+            deployment.prepare('../unsafe')
+
 
 class BackupVerificationTest(unittest.TestCase):
     def test_incomplete_or_corrupt_backup_is_rejected(self):
@@ -208,10 +232,14 @@ class ClientSafetyTest(unittest.TestCase):
         commands = [call.args[0] for call in self.execute.call_args_list]
         self.assertEqual(3, len(commands))
         for command in commands:
-            self.assertIn('StrictHostKeyChecking=yes', command)
-            self.assertIn('BatchMode=yes', command)
+            connection = shlex.split(command[command.index('-e') + 1]) if command[0] == 'rsync' else command
+            self.assertIn('StrictHostKeyChecking=yes', connection)
+            self.assertIn('BatchMode=yes', connection)
             self.assertNotIn('fixture-private-key', ' '.join(command))
-            self.assertFalse(Path(command[command.index('-i') + 1]).exists())
+            self.assertFalse(Path(connection[connection.index('-i') + 1]).exists())
+        self.assertIn(' prepare ', commands[0][-1])
+        self.assertIn('--info=progress2', commands[1])
+        self.assertIn('--timeout=60', commands[1])
         self.assertTrue(commands[-1][-1].startswith('sudo -n /usr/local/sbin/enterprise-exam-test-deploy '))
 
     def test_corrupt_artifact_is_not_uploaded(self):

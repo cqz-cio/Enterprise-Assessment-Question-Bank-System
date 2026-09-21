@@ -33,6 +33,7 @@ sudo timeout --kill-after=5s 60s bash ./install-cd.sh /absolute/path/exam-test-g
 安装器要求原测试环境标记 `.exam-test-owned` 和原备份工具已存在。它只安装部署账号、受限 sudo 入口与 root 所有的脚本，不重启服务。部署账号固定为 `exam-deploy`；独立的 `exam-test` 继续运行应用。重新安装会替换这个专用账号的公钥，可用于轮换 CI 密钥。
 
 - `/var/lib/enterprise-exam-deploy/incoming`：部署账号上传 JAR 与清单。
+- runner 和服务器需要 `rsync`。部署入口先将当前 JAR 的副本放进本次上传目录，随后 rsync 只传变化块并输出真实字节进度，最终仍校验整个 JAR 的 SHA256；不复制运行配置或密钥。
 - `/usr/local/sbin/enterprise-exam-test-deploy`：root 所有，部署账号仅能 sudo 调用此入口。参数经过校验，不能指定其他服务或根目录；上传脚本不会以 root 执行。
 - `authorized_keys` 使用 `restrict`，关闭端口转发、PTY 等能力；账号不加入 docker、sudo 或 exam-test 组。该账号仍有部署本应用代码的权限，必须保护私钥。
 - 若云防火墙限制 SSH 来源，需要让所选 GitHub runner 能连接 SSH 端口。不要为此开放 MySQL/Redis/18082。
@@ -77,7 +78,7 @@ sudo ls -lt /opt/enterprise-exam-test/cd-logs
 
 `cd-current.json` 记录最近成功版本；失败/中断后以服务实际状态、`current.jar` 和 recovery 标记为准。`releases/<run-id>-<attempt>-<sha前12位>/deployment-result.json` 记录单次结果；标记记录原 JAR、目标 JAR、备份路径。发生迁移或恢复失败时，先核实 Flyway 状态与备份，在维护窗口按 Linux README 恢复兼容版本/整套备份，健康验证后才人工删除 `.cd-needs-recovery` 并重新运行工作流。不要删除标记后盲目重试，不要关闭 Flyway。
 
-单命令默认不超过 120 秒，安装依赖/前后端各 300 秒；远程发布总等待 660 秒用于覆盖备份（180 秒）、服务停止/启动、健康检查（120 秒）和失败恢复，各内部命令仍独立限时。日志超过 60 秒无实际进展时会终止子进程；SSH 断开不会直接打断服务器关键部署步骤。中断状态保留标记，阻止下一次发布。
+单命令默认不超过 120 秒，安装依赖/前后端各 300 秒，增量上传最多 300 秒；远程发布总等待 660 秒用于覆盖备份（180 秒）、服务停止/启动、健康检查（120 秒）和失败恢复，各内部命令仍独立限时。日志超过 60 秒无实际进展时会终止子进程；SSH 断开不会直接打断服务器关键部署步骤。中断状态保留标记，阻止下一次发布。
 
 GitHub 发布包保留 14 天，构建诊断保留 7 天。服务器备份含密钥和业务数据，不上传为 Actions artifact；发布包、上传目录、私有备份和日志不自动删除，需定期检查磁盘并制定保留/异机备份策略。部署前最低空闲空间检查为 1 GiB，不代表足够容纳任意规模的备份。
 

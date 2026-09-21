@@ -38,6 +38,41 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def validate_release_id(release_id):
+    if not re.fullmatch(r'[0-9]+-[0-9]+-[a-f0-9]{12}', release_id):
+        raise ValueError('Invalid release ID')
+
+
+def prepare(release_id):
+    """Seed an upload with only the existing build artifact for rsync delta transfer."""
+    validate_release_id(release_id)
+    destination = INCOMING / release_id
+    if destination.exists() or destination.is_symlink():
+        raise ValueError('Upload directory already exists; use a new run attempt')
+    current = (BASE / 'current.jar').resolve(strict=True)
+    if not current.is_relative_to((BASE / 'releases').resolve()):
+        raise ValueError('Current JAR must be in the releases directory')
+    # Build under a root-only parent, never copy as root through a user-controlled path.
+    seeds = BASE / 'cd-seeds'
+    seeds.mkdir(mode=0o700, exist_ok=True)
+    seed = seeds / release_id
+    seed.mkdir(mode=0o700)
+    try:
+        jar = seed / 'yf-bev2-api.jar'
+        shutil.copyfile(current, jar)
+        jar.chmod(0o600)
+        import pwd
+        owner = pwd.getpwnam('exam-deploy')
+        os.chown(jar, owner.pw_uid, owner.pw_gid)
+        os.chown(seed, owner.pw_uid, owner.pw_gid)
+        # Rename on the test filesystem never follows a destination symlink.
+        seed.rename(destination)
+    finally:
+        if seed.exists():
+            shutil.rmtree(seed)
+    progress('Upload prepared from current JAR; runtime secrets are not copied.')
+
+
 def write_json(path, data):
     temporary = path.with_name(path.name + '.tmp')
     temporary.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
@@ -112,8 +147,7 @@ def copy_upload(source, target, directory_fd=None):
 
 
 def stage(release_id, commit, digest):
-    if not re.fullmatch(r'[0-9]+-[0-9]+-[a-f0-9]{12}', release_id):
-        raise ValueError('Invalid release ID')
+    validate_release_id(release_id)
     if not re.fullmatch(r'[a-f0-9]{40}', commit) or not release_id.endswith('-' + commit[:12]):
         raise ValueError('Invalid commit')
     if not re.fullmatch(r'[a-f0-9]{64}', digest):
@@ -244,8 +278,9 @@ def deploy(jar, commit, release_id):
 def main():
     if os.geteuid() != 0 or not (BASE / '.exam-test-owned').is_file():
         raise RuntimeError('Run as root on the designated test deployment only')
-    if len(sys.argv) != 4:
-        raise ValueError('Usage: enterprise-exam-test-deploy RELEASE_ID COMMIT SHA256')
+    preparing = len(sys.argv) == 3 and sys.argv[1] == 'prepare'
+    if not preparing and len(sys.argv) != 4:
+        raise ValueError('Usage: enterprise-exam-test-deploy RELEASE_ID COMMIT SHA256 | prepare RELEASE_ID')
     os.umask(0o077)
     # SSH disconnects must not interrupt the critical switch/recovery section.
     signal.signal(signal.SIGHUP, signal.SIG_IGN)
@@ -256,6 +291,9 @@ def main():
             raise RuntimeError('Unfinished deployment: inspect .cd-needs-recovery before retrying')
         if shutil.disk_usage(BASE).free < 1024 * 1024 * 1024:
             raise RuntimeError('Less than 1 GiB free; make space before deploying')
+        if preparing:
+            prepare(sys.argv[2])
+            return
         jar = stage(*sys.argv[1:])
         deploy(jar, sys.argv[2], sys.argv[1])
 

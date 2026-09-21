@@ -6,7 +6,7 @@ base=/opt/enterprise-exam-test
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 [[ $EUID -eq 0 && -f "$base/.exam-test-owned" ]] || { echo 'Run as root on the existing test server.' >&2; exit 1; }
 [[ $# -eq 1 && -f "$1" ]] || { echo 'Usage: install-cd.sh /absolute/path/to/ci-key.pub' >&2; exit 1; }
-for command in python3 useradd install visudo ssh-keygen timeout; do command -v "$command" >/dev/null; done
+for command in python3 useradd install visudo ssh-keygen timeout rsync; do command -v "$command" >/dev/null; done
 timeout 10 ssh-keygen -lf "$1" >/dev/null
 # Reject multiline, authorized_keys options and private keys.
 python3 - "$1" <<'PY'

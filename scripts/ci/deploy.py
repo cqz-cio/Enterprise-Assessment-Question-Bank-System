@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import sys
 import tempfile
 import urllib.request
@@ -67,9 +68,12 @@ def main():
                    '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(hosts_file),
                    '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3']
         ssh = ['ssh', *options, '-p', port, destination]
-        execute([*ssh, f'umask 077; mkdir {remote}'], 30)
-        execute(['scp', *options, '-P', port, str(jar), str(folder / 'release.json'),
-                 destination + ':' + remote + '/'], 180)
+        execute([*ssh, f'sudo -n /usr/local/sbin/enterprise-exam-test-deploy prepare {release_id}'], 30)
+        # Seeded old JAR allows changed-block transfer instead of resending all dependencies.
+        # Byte progress keeps idle detection meaningful with non-TTY output.
+        execute(['rsync', '--info=progress2', '--outbuf=L', '--timeout=60', '--chmod=F600,D700',
+                 '-e', shlex.join(['ssh', *options, '-p', port]), str(jar), str(folder / 'release.json'),
+                 destination + ':' + remote + '/'], 300)
         # 660 seconds covers backup (180), service operations, readiness and recovery.
         result = execute([*ssh, f'sudo -n /usr/local/sbin/enterprise-exam-test-deploy {release_id} {sha} {digest}'], 660)
         print(result.decode('utf-8', errors='replace'))

@@ -95,7 +95,7 @@ jobs:
       vars.TEST_DEPLOY_ENABLED == 'true' &&
       (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment:
       name: test
       url: https://124.220.2.69:18443
