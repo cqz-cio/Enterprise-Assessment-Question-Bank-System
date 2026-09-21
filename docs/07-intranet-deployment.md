@@ -146,4 +146,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-backend.ps1 -Res
 
 DPAPI 文件绑定同一 Windows 用户和计算机，不能作为跨机器灾备；换机器/重装前须通过受控密钥管理渠道另行备份原密钥，并演练恢复。本轮已验证清空环境变量的新 PowerShell 重启、原 JWT 与考核码兼容；未进行物理重启或跨机器恢复。加密机制见 [Microsoft Export-Clixml 文档](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-clixml)。
 
-当前认证忽略转发 IP 头，Vite/反向代理后的用户可能共用一个限流来源。正式上线必须结合可信代理网络、入口防刷和峰值并发调整，不可简单打开任意 Forwarded 头信任。开发 profile、数据库端口隔离、HTTPS 和完整备份仍按前文生产要求另行落实。
+当前认证忽略转发 IP 头，Vite/反向代理后的用户可能共用一个限流来源。正式上线必须结合可信代理网络、入口防刷和峰值并发调整，不可简单打开任意 Forwarded 头信任。端口隔离、HTTPS、异机备份与密钥托管仍按前文生产要求另行落实；Windows 运维工具见下节。
+
+## 11. Windows 发布与恢复工具（2026-09-21）
+
+用户确认最终服务器尚未确定，先完善当前 Windows 环境。操作入口见
+[Windows 运维说明](../deploy/windows/README.md)，验收记录见
+[本轮交付](./P1_WINDOWS_OPS_DELIVERY.md)。
+
+- `scripts/ops/build_release.py`：构建前端、测试并打包后端，校验 JAR 内全部前端文件，输出版本目录与 SHA256 清单。独立构建目录避免混入旧静态文件。
+- `scripts/ops/backup.py create`：一致性 MySQL 快照、本地上传文件、已有 DPAPI 密钥文件和校验清单；Windows 备份目录仅当前用户/SYSTEM 可访问。
+- `scripts/ops/backup.py verify <目录>`：在无网络、无发布端口的随机临时 MySQL 容器恢复，比较快照内全部表行数、Flyway 版本及附件完整性，自动清理并输出报告。
+- `start-backend.ps1 -Profile prod`：使用 `.local/application-production.properties` 与原加密密钥；默认仍为 dev，不自动改变当前数据库/Redis 凭据。
+- 生产 profile 默认监听回环地址、关闭文档接口及静态入口、限制连接池、轮转应用日志。实际部署前仍需处理 HTTPS、内网入口、专用账号、Redis 认证、备份计划和异机密钥托管。
+
+本次无数据库迁移和业务 API 变更，不会把备份导入当前业务库。

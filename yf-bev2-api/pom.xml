@@ -364,6 +364,25 @@
     </dependencies>
 
 
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <directory>${project.basedir}/target/release-build</directory>
+                <resources>
+                    <resource>
+                        <directory>src/main/resources</directory>
+                        <excludes><exclude>static/**</exclude></excludes>
+                    </resource>
+                    <resource>
+                        <directory>${project.basedir}/../yf-bev2-vue/dist-pro</directory>
+                        <targetPath>static</targetPath>
+                    </resource>
+                </resources>
+            </build>
+        </profile>
+    </profiles>
+
     <build>
         <finalName>${project.name}</finalName>
         <defaultGoal>compile</defaultGoal>

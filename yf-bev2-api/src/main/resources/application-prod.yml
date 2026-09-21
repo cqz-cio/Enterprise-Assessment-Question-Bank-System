@@ -1,0 +1,68 @@
+# Activate explicitly; credentials have no development fallbacks.
+server:
+  address: 127.0.0.1
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${EXAM_DB_URL}
+    username: ${EXAM_DB_USER}
+    password: ${EXAM_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 2
+      connection-timeout: 10000
+  data:
+    redis:
+      host: ${EXAM_REDIS_HOST:127.0.0.1}
+      port: ${EXAM_REDIS_PORT:6379}
+      database: ${EXAM_REDIS_DATABASE:13}
+      password: ${EXAM_REDIS_PASSWORD}
+      timeout: 5s
+      connect-timeout: 5s
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz:
+        scheduler:
+          instanceName: examScheduler
+          instanceId: AUTO
+        jobStore:
+          class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+          driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+          tablePrefix: QRTZ_
+          isClustered: true
+          clusterCheckinInterval: 10000
+        threadPool:
+          threadCount: 5
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+knife4j:
+  enable: false
+  production: true
+logging:
+  level:
+    root: INFO
+    com.yf: INFO
+  file:
+    name: ${EXAM_LOG_FILE:logs/exam.log}
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 30
+      total-size-cap: 1GB
+      clean-history-on-start: true

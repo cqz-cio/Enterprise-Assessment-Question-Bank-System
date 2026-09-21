@@ -17,3 +17,7 @@ yf-bev2-api/.idea/
 /work/
 /yf-bev2-api/work/
 /yf-bev2-api/logs/
+
+# Python maintenance tool caches
+__pycache__/
+*.pyc

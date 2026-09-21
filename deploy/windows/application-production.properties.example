@@ -1,0 +1,14 @@
+# Copy to .local/application-production.properties; never commit the filled file.
+# Use a dedicated application DB account with privileges on this schema only.
+# Existing databases MUST retain their original JWT_SECRET / ASSIGNMENT_CODE_PEPPER.
+# start-backend.ps1 injects those two values from the existing DPAPI store.
+EXAM_DB_URL=jdbc:mysql://127.0.0.1:3306/yf_boot_exam?useSSL=false&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&allowPublicKeyRetrieval=true
+EXAM_DB_USER=REPLACE_WITH_APPLICATION_DB_USER
+EXAM_DB_PASSWORD=REPLACE_WITH_DATABASE_PASSWORD
+EXAM_REDIS_HOST=127.0.0.1
+EXAM_REDIS_PORT=6379
+EXAM_REDIS_DATABASE=13
+EXAM_REDIS_PASSWORD=REPLACE_WITH_REDIS_PASSWORD
+# With a remote DB use verified TLS, not useSSL=false.
+# Java properties escape backslashes; prefer D:/... for absolute Windows paths.
+EXAM_LOG_FILE=logs/exam.log
