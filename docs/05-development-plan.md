@@ -384,3 +384,10 @@ feat(report): export filtered assessment results
 ## 登录与首屏 Logo 比例优化（2026-09-21）
 
 按批准预览完成登录页与加载画面比例调整及窄屏适配，并部署测试站。修改文件 ESLint、正式构建、115 后端测试、137 静态文件一致性校验通过；新旧后端 class/依赖/迁移一致。公网 HTTPS 与登录页桌面/窄屏验收通过，18443 已可访问。无 API 或迁移变化，备份及发布详情见 `LOGO_PROPORTION_DELIVERY.md`；下一步完整业务浏览器验收与备份调度。
+
+## GitHub CI/CD 脚本（D-038，2026-09-21）
+
+- 新增 `.github/workflows/ci-cd.yml`、`scripts/ci/`、Linux 部署入口/一次性安装器、LF 属性及 `deploy/linux/GITHUB_ACTIONS.md`。PR 测试构建、main 条件自动部署、手动入口、备份校验、失败恢复/迁移保护、SSH 主机校验、发布凭据隔离。
+- 后端 115 项和运维 13 项通过，Linux 隔离部署/客户端 17 项通过；前端正式构建及 JAR 137 个静态文件一致性通过，actionlint 1.7.12、Bash/Python 语法与 diff 检查通过。测试不操作实际 systemd、SSH 或业务库。
+- 无迁移或 API 变化；此前 Logo 改动、AGENTS.md、patches/ 保留。前端全量类型检查仍为已知债务，本轮未重新统计；CI 将其设为非阻断报告。
+- 下一步按配置说明安装专用账号/入口、配置 test 环境 Secrets 和仓库启用变量，提交工作流后完成首次实际 Actions 部署；本轮未推送 Git、未更改服务器或 GitHub 设置。完整浏览器业务验收和定时/异机备份仍独立待办。

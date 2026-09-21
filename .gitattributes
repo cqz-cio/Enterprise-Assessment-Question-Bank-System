@@ -1,0 +1,4 @@
+# Linux deploy entry points must retain LF when checked out on Windows.
+/deploy/linux/*.sh text eol=lf
+/deploy/linux/deploy_test.py text eol=lf
+/.github/workflows/*.yml text eol=lf

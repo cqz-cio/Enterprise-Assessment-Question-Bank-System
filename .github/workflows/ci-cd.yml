@@ -1,0 +1,124 @@
+name: CI and Test Deployment
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy to the existing Linux test server after CI
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Do not interrupt a deployment when a newer commit arrives.
+concurrency:
+  group: exam-ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: '3'
+
+jobs:
+  build:
+    name: Test and build release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: '9.15.9'
+          run_install: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: yf-bev2-api/pom.xml
+      - name: Install locked frontend dependencies
+        run: python3 scripts/ci/run.py 300 pnpm --dir yf-bev2-vue install --frozen-lockfile --reporter=append-only
+      - name: Test maintenance and deployment safety
+        run: |
+          python3 scripts/ci/run.py 120 python3 -m unittest discover -s scripts/ops -p 'test_*.py' -v
+          python3 scripts/ci/run.py 120 python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
+      - name: Build frontend and run all backend tests
+        run: python3 scripts/ops/build_release.py
+      - name: Prepare immutable release artifact
+        run: |
+          python3 - <<'PY'
+          import pathlib, shutil
+          releases = list(pathlib.Path('yf-bev2-api/target/releases').iterdir())
+          assert len(releases) == 1, 'Expected exactly one freshly built release'
+          shutil.copytree(releases[0], 'work/ci-release')
+          PY
+      - name: Frontend type debt (informational until existing errors are fixed)
+        id: types
+        continue-on-error: true
+        run: python3 scripts/ci/run.py 120 pnpm --dir yf-bev2-vue run ts:check
+      - name: Report known type debt
+        if: steps.types.outcome == 'failure'
+        run: echo '::warning::Frontend type checking failed; see build-diagnostics. Existing type debt is not currently a deployment gate.'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ github.sha }}
+          path: work/ci-release/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            work/codex-logs/
+            yf-bev2-api/target/release-build/surefire-reports/
+          retention-days: 7
+
+  deploy-test:
+    name: Deploy Linux test server
+    needs: build
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      vars.TEST_DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: test
+      url: https://124.220.2.69:18443
+    concurrency:
+      group: enterprise-exam-test-deployment
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-${{ github.sha }}
+          path: work/ci-release
+      - name: Verify, upload and deploy the tested artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_SSH_HOST: ${{ vars.TEST_SSH_HOST || '124.220.2.69' }}
+          TEST_SSH_PORT: ${{ vars.TEST_SSH_PORT || '22' }}
+          TEST_SSH_PRIVATE_KEY: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
+          TEST_SSH_KNOWN_HOSTS: ${{ secrets.TEST_SSH_KNOWN_HOSTS }}
+        run: python3 scripts/ci/deploy.py
+      - name: Check public HTTPS entry
+        run: |
+          timeout --kill-after=5s 30s curl --fail --silent --show-error --connect-timeout 10 --max-time 20 \
+            --output /dev/null https://124.220.2.69:18443/

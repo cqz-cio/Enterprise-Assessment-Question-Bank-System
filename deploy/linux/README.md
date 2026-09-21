@@ -2,6 +2,8 @@
 
 本目录对应单实例测试环境。Java 17 运行 JAR，Nginx 提供 HTTPS，独立 Docker Compose 项目提供 MySQL 8 与 Redis 7。不是高并发容量承诺，也不要直接替换服务器上已有应用。
 
+GitHub 自动测试、构建和测试站更新见 [GitHub CI/CD 配置说明](GITHUB_ACTIONS.md)。
+
 ## 本次部署约定
 
 - 主目录：`/opt/enterprise-exam-test`，归属标记 `.exam-test-owned`。
