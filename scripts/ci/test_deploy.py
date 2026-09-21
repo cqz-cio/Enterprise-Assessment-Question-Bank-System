@@ -29,6 +29,13 @@ def make_jar(path, migration='original', extra=False):
 
 
 class MigrationGuardTest(unittest.TestCase):
+    def test_windows_and_linux_line_endings_are_equivalent(self):
+        with tempfile.TemporaryDirectory() as folder:
+            old, new = Path(folder) / 'old.jar', Path(folder) / 'new.jar'
+            make_jar(old, migration='SELECT 1;\r\nSELECT 2;\r\n')
+            make_jar(new, migration='SELECT 1;\nSELECT 2;\n')
+            self.assertTrue(deployment.validate_upgrade(old, new))
+
     def test_progress_survives_closed_ssh_output(self):
         with patch('builtins.print', side_effect=BrokenPipeError), patch.object(deployment.os, 'dup2') as redirect:
             deployment.progress('fixture')

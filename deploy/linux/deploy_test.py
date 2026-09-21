@@ -84,7 +84,9 @@ def migrations(jar):
         required = {'BOOT-INF/classes/static/index.html', 'BOOT-INF/classes/application-prod.yml'}
         if not required.issubset(names) or len(names) != len(set(names)):
             raise ValueError('Invalid release JAR or missing production frontend/profile')
-        result = {name: hashlib.sha256(archive.read(name)).hexdigest() for name in names
+        # Windows-built releases can contain CRLF while Linux checkout uses LF.
+        # Normalize only line endings; all actual SQL content remains immutable.
+        result = {name: hashlib.sha256(archive.read(name).replace(b'\r\n', b'\n')).hexdigest() for name in names
                   if name.startswith('BOOT-INF/classes/db/migration/') and not name.endswith('/')}
     if not result:
         raise ValueError('Release has no Flyway migrations')

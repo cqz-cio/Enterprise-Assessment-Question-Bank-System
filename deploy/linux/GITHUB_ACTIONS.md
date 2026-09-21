@@ -57,7 +57,7 @@ JWT、考核码 pepper、数据库/Redis 密码继续只留在服务器现有 `s
 ## 发布保护与失败处理
 
 1. GitHub 串行发布；服务器另有文件锁。CI 记录 Git SHA、JAR SHA256，上传后再次校验；不允许 dirty 本地包进入 CD。
-2. 新包放到 root 所有的独立 release 目录；旧 Flyway 文件被修改或移除时，停止发布，服务不受影响。
+2. 新包放到 root 所有的独立 release 目录；旧 Flyway 文件被修改或移除时，停止发布，服务不受影响。仅统一 Windows CRLF/Linux LF 行尾后比较，避免跨平台打包被误判为 SQL 修改。
 3. 停止 `enterprise-exam-test`，运行现有私有备份工具，逐项校验数据库、附件、运行配置及密钥备份清单；失败会恢复旧服务。
 4. 原子更新 `current.jar`，启动新包。检查返回的首页与 JAR 内容一致、验证码返回 PNG（包含 Redis 依赖检查）、systemd 服务为 active；最后从 GitHub 检查公网 TLS/首页，不使用 `curl -k`。
 5. 新包失败且迁移集合完全相同：自动恢复旧 JAR 并检查健康。新包带有新增迁移：停止应用，保留 `.cd-needs-recovery`，防止直接回退包或继续部署。
