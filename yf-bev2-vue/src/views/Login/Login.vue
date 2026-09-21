@@ -39,9 +39,9 @@ const toLogin = () => {
         <div
           :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px lt-xl:hidden`"
         >
-          <div class="flex items-center relative text-white">
-            <img :src="siteInfo.loginLogo" alt="" class="object-contain w-48px h-48px mr-10px" />
-            <span class="text-20px font-bold">{{ siteInfo.siteName }}</span>
+          <div :class="`${prefixCls}__brand`" class="flex relative text-white">
+            <img :src="siteInfo.loginLogo" alt="" />
+            <span>{{ siteInfo.siteName }}</span>
           </div>
           <div class="flex justify-center items-center h-[calc(100%-60px)]">
             <TransitionGroup
@@ -61,9 +61,9 @@ const toLogin = () => {
           <div
             class="flex justify-between items-center text-white at-2xl:justify-end at-xl:justify-end"
           >
-            <div class="flex items-center at-2xl:hidden at-xl:hidden">
-              <img :src="siteInfo.loginLogo" alt="" class="object-contain w-48px h-48px mr-10px" />
-              <span class="text-20px font-bold">{{ siteInfo.siteName }}</span>
+            <div :class="`${prefixCls}__brand`" class="flex at-2xl:hidden at-xl:hidden">
+              <img :src="siteInfo.loginLogo" alt="" />
+              <span>{{ siteInfo.siteName }}</span>
             </div>
 
             <div class="flex justify-end items-center space-x-10px">
@@ -98,6 +98,40 @@ const toLogin = () => {
 
 .@{prefix-cls} {
   overflow: auto;
+
+  &__brand {
+    align-items: center;
+    gap: 20px;
+    min-width: 0;
+
+    img {
+      display: block;
+      flex-shrink: 0;
+      width: 154px;
+      height: auto;
+      max-height: 60px;
+      object-fit: contain;
+    }
+
+    span {
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 639px) {
+      flex-wrap: wrap;
+      gap: 10px 14px;
+
+      img {
+        width: 116px;
+      }
+
+      span {
+        font-size: 18px;
+      }
+    }
+  }
 
   &__left {
     &::before {
