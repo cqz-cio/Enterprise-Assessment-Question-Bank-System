@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'ops'))
 from ops_common import run
 
 if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     try:
         output = run(sys.argv[2:], timeout=int(sys.argv[1]), record_output=True)
         # Commands here are builds/tests only, never commands handling server secrets.

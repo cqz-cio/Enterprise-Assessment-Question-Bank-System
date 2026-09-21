@@ -3,6 +3,7 @@
   "version": "2.2.0",
   "description": "企业人才考核系统前端",
   "private": true,
+  "packageManager": "pnpm@11.3.0",
   "scripts": {
     "i": "pnpm install",
     "dev": "vite --mode base",

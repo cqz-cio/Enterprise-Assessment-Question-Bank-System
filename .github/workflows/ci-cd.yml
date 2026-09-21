@@ -39,7 +39,7 @@ jobs:
           package-manager-cache: false
       - uses: pnpm/action-setup@v6
         with:
-          version: '9.15.9'
+          version: '11.3.0'
           run_install: false
       - uses: actions/setup-java@v6
         with:
