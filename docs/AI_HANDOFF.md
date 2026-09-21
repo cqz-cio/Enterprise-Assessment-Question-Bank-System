@@ -269,3 +269,11 @@ Word 批量导入已实现并启动最新服务：规范 DOCX 模板、预校验
 - PR 运行 CI；main 通过 CI 后部署同一 JAR，也支持手动触发。仓库变量 `TEST_DEPLOY_ENABLED=true` 才启用 CD；需要专用 SSH 私钥和已核实 known_hosts Secrets。保留服务器原密钥/数据，停服备份后切换包，新增迁移失败时禁止自动换旧包。
 - 后端 115 项、运维 13 项、Linux 隔离 CI/CD 17 项测试，正式前端/JAR 137 文件校验、actionlint 及脚本语法通过；无迁移/业务 API 变化。既有前端类型债务在 CI 中非阻断报告。
 - **本轮未推送、未配置 GitHub Secrets、未安装服务器部署入口、未执行实际自动发布。** 下一步完成一次性配置和 Actions 首次联调；服务器当前版本和此前 Logo 未提交改动均保留。
+
+## 26. GitHub CI/CD 已启用并真实发布成功（2026-09-21）
+
+- 第 25 节的“未启用”状态被本节替代。用户授权推送/联调，并明确授权专用账号、受限 sudo 和 GitHub 加密 Secrets；现已配置 test 环境 main 分支限制及 TEST_DEPLOY_ENABLED=true。
+- [运行 35571422437](https://github.com/cqz-cio/Enterprise-Assessment-Question-Bank-System/actions/runs/35571422437) 的 CI/CD 均成功，部署应用提交 b849c99，备份 `/opt/enterprise-exam-test/backups/ops/20260921-151022-360c158c`。详见 `P1_CICD_DELIVERY.md`。
+- 实际修复 pnpm 版本不匹配、海外 runner Maven 镜像停滞、SQL 跨平台行尾误判及整包 SCP 低速上传；最终采用 pnpm 11.3.0、CI Maven Central、只归一化行尾的迁移比较、基于旧 JAR 的 rsync 增量传输。
+- 后端 115 项、部署相关 20 项、前端构建与包内资源校验通过；前端类型错误实际仍为 32 项，非阻断。服务器、公网 TLS/资源/验证码通过，原密钥、配置、附件、八张业务表计数和 V024 保持一致，原 ERP 正常。无迁移或 API 改动。
+- Logo 已上线改动单独提交保存；本地仅剩原有未跟踪 AGENTS.md、patches/。最终验收文档用 `[skip ci]` 提交，避免文档更新再次停服。下一步类型债务、定时/异机备份及完整业务浏览器验收。

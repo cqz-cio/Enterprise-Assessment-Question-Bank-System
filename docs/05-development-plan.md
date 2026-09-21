@@ -391,3 +391,7 @@ feat(report): export filtered assessment results
 - 后端 115 项和运维 13 项通过，Linux 隔离部署/客户端 17 项通过；前端正式构建及 JAR 137 个静态文件一致性通过，actionlint 1.7.12、Bash/Python 语法与 diff 检查通过。测试不操作实际 systemd、SSH 或业务库。
 - 无迁移或 API 变化；此前 Logo 改动、AGENTS.md、patches/ 保留。前端全量类型检查仍为已知债务，本轮未重新统计；CI 将其设为非阻断报告。
 - 下一步按配置说明安装专用账号/入口、配置 test 环境 Secrets 和仓库启用变量，提交工作流后完成首次实际 Actions 部署；本轮未推送 Git、未更改服务器或 GitHub 设置。完整浏览器业务验收和定时/异机备份仍独立待办。
+
+## GitHub CI/CD 真实联调完成（2026-09-21）
+
+用户明确授权配置服务器部署权限和 GitHub Secrets；工作流已推送并启用，运行 35571422437 的 CI/CD 全部成功，应用提交 b849c99 已部署。实际修复 pnpm 版本、Maven 镜像、迁移行尾和低速 SCP 问题，改用增量传输。后端 115 项、CI/CD 20 项测试与前端构建校验通过，32 项既有类型错误仍非阻断。原密钥/配置/附件/八张业务表计数/V024 不变，公网 HTTPS 和原 ERP 通过；无新迁移/API。完整运行、备份和后续步骤见 `P1_CICD_DELIVERY.md`。
