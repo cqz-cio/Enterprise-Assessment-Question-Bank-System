@@ -93,7 +93,8 @@ export const useAppStore = defineStore('app', {
         // 头部边框颜色
         topToolBorderColor: '#eee'
       },
-      siteInfo: getStorage('siteInfo')
+      // 每次加载从服务端获取，避免旧站点品牌在本地缓存中永久残留。
+      siteInfo: {}
     }
   },
   getters: {

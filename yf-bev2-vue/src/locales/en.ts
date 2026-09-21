@@ -107,7 +107,7 @@ export default {
   },
   login: {
     welcome: 'Welcome to the system',
-    message: 'Backstage management system',
+    message: 'Talent assessments for recruitment, probation and promotion',
     username: 'Username',
     realName: 'Name',
     password: 'Password',

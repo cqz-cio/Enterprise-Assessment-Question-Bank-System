@@ -65,6 +65,28 @@ class SysUserServiceImplTokenTest {
     }
 
     @Test
+    void currentProfileReplacesStaleSessionPresentationWithoutRotatingToken() {
+        when(jwtUtils.getVerifiedUsername("current-token")).thenReturn("employee001");
+        Map<String, Object> cached = session("current-token");
+        cached.put("realName", "旧显示名称");
+        cached.put("avatar", "https://legacy.example/avatar.jpg");
+        when(redisService.getJson(Constant.USER_NAME_KEY + "employee001")).thenReturn(cached);
+        SysUser user = new SysUser();
+        user.setId("user-1");
+        user.setUserName("employee001");
+        user.setState(UserState.NORMAL);
+        user.setRealName("系统管理员");
+        user.setAvatar(SysUser.DEFAULT_AVATAR);
+        when(userMapper.selectById("user-1")).thenReturn(user);
+
+        var result = service.token("current-token");
+        assertEquals("系统管理员", result.getRealName());
+        assertEquals("/default-avatar.jpg", result.getAvatar());
+        assertEquals("current-token", result.getToken());
+        verify(jwtUtils, never()).sign(anyString());
+    }
+
+    @Test
     void disabledUserSessionIsRevoked() {
         when(jwtUtils.getVerifiedUsername("current-token")).thenReturn("employee001");
         when(redisService.getJson(Constant.USER_NAME_KEY + "employee001"))

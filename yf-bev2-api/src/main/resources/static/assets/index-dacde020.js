@@ -1,0 +1,1 @@
+import{U as s}from"./index-aca63980.js";const a=a=>s.post({url:"/api/sys/depart/save",data:a}),t=a=>s.post({url:"/api/sys/depart/tree",data:a}),e=()=>s.post({url:"/api/sys/depart/tree-select"});export{t as a,a as s,e as t};

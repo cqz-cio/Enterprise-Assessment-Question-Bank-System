@@ -11,7 +11,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 /**
- * 云帆考试系统V2
+ * 企业人才考核系统
  *
  * @author bool
  */
@@ -34,7 +34,7 @@ public class BootExamApplication {
         }
 
         log.info("\n----------------------------------------------------------\n\t" +
-                "云帆考试系统V2启动成功，访问路径如下:\n\t" +
+                "企业人才考核系统启动成功，访问路径如下:\n\t" +
                 "本地路径: \t\thttp://localhost:" + port + path + "/\n\t" +
                 "网络地址: \thttp://" + ip + ":" + port + path + "/\n\t" +
                 "API文档: \t\thttp://" + ip + ":" + port + path + "/doc.html\n" +

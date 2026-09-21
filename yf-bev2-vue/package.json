@@ -1,9 +1,8 @@
 {
-  "name": "yf-boot-vue",
+  "name": "enterprise-assessment-web",
   "version": "2.2.0",
-  "description": "一套基于vue3、element-plus、typesScript、vite4的后台集成方案。",
-  "author": "Van <18365918@qq.com>",
-  "private": false,
+  "description": "企业人才考核系统前端",
+  "private": true,
   "scripts": {
     "i": "pnpm install",
     "dev": "vite --mode base",
@@ -108,13 +107,5 @@
   "engines": {
     "node": ">= 14.18.0"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/yf-team/yf-boot.git"
-  },
-  "bugs": {
-    "url": "https://github.com/yf-team/yf-boot/issues"
-  },
-  "homepage": "https://github.com/yf-team/yf-boot"
+  "license": "MIT"
 }

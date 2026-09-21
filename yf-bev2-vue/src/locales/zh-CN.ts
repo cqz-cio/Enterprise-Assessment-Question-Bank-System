@@ -106,7 +106,7 @@ export default {
   },
   login: {
     welcome: '欢迎使用本系统',
-    message: '基于SpringBoot3.0+Vue3.0的在线考试系统',
+    message: '面向招聘、转正与晋升的企业人才考核平台',
     username: '用户名',
     realName: '姓名',
     password: '密码',

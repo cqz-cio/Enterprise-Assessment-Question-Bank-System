@@ -223,7 +223,7 @@ short  简答题
 | audit_time | datetime | 最近审核时间 |
 | audit_remark | varchar(500) | 审核意见或驳回原因 |
 
-手机号和邮箱复用 `el_sys_user.mobile/email` 且均允许为空，部门复用 `dept_code`。V1 不使用现有 `id_card` 作为员工注册必填字段。`avatar` 默认使用超级管理员头像；管理员、HR、员工和候选人新建时统一写入默认值，已有自定义头像不覆盖。
+手机号和邮箱复用 `el_sys_user.mobile/email` 且均允许为空，部门复用 `dept_code`。V1 不使用现有 `id_card` 作为员工注册必填字段。`avatar` 默认使用本地 `/default-avatar.jpg`（D-034/V022）；管理员、HR、员工和候选人新建时统一写入默认值，已有自定义头像不覆盖。
 
 ## 4. 状态机
 
@@ -346,6 +346,10 @@ yf-bev2-api/src/main/resources/db/migration/
 ## 成绩报表权限迁移（V021，2026-09-20）
 
 无业务表字段变化。新增成绩查询菜单及 `exam:results:view`、`exam:results:export` 权限，授予 admin/HR。报表从 el_exam_assignment + el_paper 读取一对一记录，并核对 assignment_id/paper_id/user_id/exam_id；分配部门决定管理数据范围。题目快照汇总客观分，终审后才展示主观分和最终总分；不改写已有成绩。
+
+## 品牌清理迁移（V022/V023，2026-09-20）
+
+V022 更新旧站点名称、公司页脚、远程 Logo/插图、旧站点头像及默认头像字段值，匹配原 ID 和原值重命名演示账号/考试/题库/分类。已有自定义配置不覆盖。V023 仅将已知旧演示考试下无分配的历史试卷旧标题改为“示例考核”；其余试卷字段、题目/选项快照、作答和成绩不变。无新增业务表、接口权限或索引；不得回改 V011/V012 等已应用版本。
 
 
 ## 候选人批量导入迁移 V024（2026-09-20）

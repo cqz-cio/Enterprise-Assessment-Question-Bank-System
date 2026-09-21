@@ -40,7 +40,7 @@ const toLogin = () => {
           :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px lt-xl:hidden`"
         >
           <div class="flex items-center relative text-white">
-            <img :src="siteInfo.loginLogo" alt="" class="w-48px h-48px mr-10px" />
+            <img :src="siteInfo.loginLogo" alt="" class="object-contain w-48px h-48px mr-10px" />
             <span class="text-20px font-bold">{{ siteInfo.siteName }}</span>
           </div>
           <div class="flex justify-center items-center h-[calc(100%-60px)]">
@@ -50,9 +50,7 @@ const toLogin = () => {
               enter-active-class="animate__animated animate__bounceInLeft"
             >
               <img :src="siteInfo.loginBg" key="1" alt="" class="w-350px" />
-              <div class="text-3xl text-white !mt-50px" key="2">{{
-                t('login.welcome')
-              }}</div>
+              <div class="text-3xl text-white !mt-50px" key="2">{{ t('login.welcome') }}</div>
               <div class="mt-5 font-normal text-white text-14px" key="3">
                 {{ t('login.message') }}
               </div>
@@ -64,7 +62,7 @@ const toLogin = () => {
             class="flex justify-between items-center text-white at-2xl:justify-end at-xl:justify-end"
           >
             <div class="flex items-center at-2xl:hidden at-xl:hidden">
-              <img :src="siteInfo.loginLogo" alt="" class="w-48px h-48px mr-10px" />
+              <img :src="siteInfo.loginLogo" alt="" class="object-contain w-48px h-48px mr-10px" />
               <span class="text-20px font-bold">{{ siteInfo.siteName }}</span>
             </div>
 

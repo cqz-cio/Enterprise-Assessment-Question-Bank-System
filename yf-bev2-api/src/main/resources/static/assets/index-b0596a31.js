@@ -1,0 +1,1 @@
+import{U as a}from"./index-aca63980.js";const s=s=>a.post({url:"/api/sys/dic/save",data:s}),t=s=>a.post({url:"/api/sys/dic/value/tree",data:s}),e=s=>a.post({url:"/api/sys/dic/value/save",data:s}),d=s=>a.post({url:"/api/sys/dic/value/delete",data:s});export{s as a,e as b,d as c,t as s};

@@ -82,9 +82,4 @@ public class SignUtils {
         return url;
     }
 
-    public static void main(String[] args) {
-        // 构建跳转地址
-        String url = generateUrl("http://120.211.98.242:18088", "zhangsan202204143", "可能乱码04143", "student", "北京云帆,技术部");
-        log.info("跳转地址：" + url);
-    }
 }

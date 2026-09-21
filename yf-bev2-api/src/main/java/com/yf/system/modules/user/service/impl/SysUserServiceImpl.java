@@ -207,6 +207,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new ServiceException(ApiError.ERROR_10010002);
         }
 
+        // Refresh presentation data after profile/config migrations without rotating the token.
+        session.setRealName(current.getRealName());
+        session.setAvatar(current.getAvatar());
         return session;
     }
 

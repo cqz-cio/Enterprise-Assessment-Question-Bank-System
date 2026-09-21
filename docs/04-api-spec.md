@@ -658,6 +658,8 @@ Permission: exam:grading:view AND exam:grading:finalize
 
 `POST /api/sys/user/info` 在验证 token、当前会话和账号状态后，按该会话用户 ID 读取最新权限列表，不再返回登录时的旧权限快照。前端刷新后在首次挂载业务页面前调用此接口同步按钮权限；接口不接受客户端指定权限所属用户，不签发新 token。
 
+2026-09-20 补充（D-034）：会话读取在原有认证校验通过后，同时返回数据库中最新的 `realName` 和 `avatar`，避免品牌迁移后继续使用 Redis 登录快照中的旧展示数据。原 token、身份归属和权限校验保持不变。`/api/sys/config/detail` 的字段结构不变，默认品牌图片使用本地相对路径，旧宣传页脚为空。
+
 ### Word 题目导入（2026-09-07）
 
 - `GET /api/exam/repo/qu/import-word-template`：下载可直接解析的四题型 DOCX 示例模板，使用时需替换示例题。

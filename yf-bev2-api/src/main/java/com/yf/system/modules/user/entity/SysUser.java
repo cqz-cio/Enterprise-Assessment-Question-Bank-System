@@ -25,7 +25,7 @@ public class SysUser extends Model<SysUser> {
     private static final long serialVersionUID = 1L;
 
     public static final String DEFAULT_AVATAR =
-            "https://be2.yfhl.net/upload/file/2025/04/23/1914975014591750145.jpeg";
+            "/default-avatar.jpg";
 
     /**
      * ID

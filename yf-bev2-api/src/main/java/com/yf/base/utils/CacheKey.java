@@ -10,7 +10,7 @@ public interface CacheKey {
     /**
      * 网站
      */
-    String SITE = "sys:site";
+    String SITE = "sys:site:v2";
 
     /**
      * 菜单路由
@@ -20,7 +20,7 @@ public interface CacheKey {
     /**
      * 数据字典
      */
-    String DICT = "sys:dict";
+    String DICT = "sys:dict:v2";
 
     /**
      * 用户token

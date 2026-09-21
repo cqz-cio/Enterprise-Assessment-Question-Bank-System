@@ -115,7 +115,7 @@ public class SysDepartServiceImpl extends ServiceImpl<SysDepartMapper, SysDepart
         String[] arr = str.split(",");
 
 
-        // 如：云帆互联,产品研发部,技术部
+        // 如：公司,产品研发部,技术部
         List<String> subs = new ArrayList<>();
 
         // 默认0

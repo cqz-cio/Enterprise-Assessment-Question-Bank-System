@@ -66,7 +66,7 @@ watch(
     >
       <img
         :src="siteInfo.backLogo"
-        class="w-[calc(var(--logo-height)-20px)] h-[calc(var(--logo-height)-20px)]"
+        class="object-contain shrink-0 w-[calc(var(--logo-height)-20px)] h-[calc(var(--logo-height)-20px)]"
       />
       <div
         v-if="show"

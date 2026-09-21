@@ -1,0 +1,1 @@
+import{U as a}from"./index-aca63980.js";const e=e=>a.post({url:"/api/exam/exam/exam/save",data:e}),m=e=>a.post({url:"/api/exam/exam/exam/detail",data:e}),x=e=>a.post({url:"/api/exam/exam/exam/detail-for-exam",data:e});export{m as a,x as d,e as s};

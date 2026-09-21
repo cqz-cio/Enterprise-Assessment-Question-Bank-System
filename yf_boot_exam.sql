@@ -35,7 +35,7 @@ CREATE TABLE `el_cfg_base` (
 -- Records of el_cfg_base
 -- ----------------------------
 BEGIN;
-INSERT INTO `el_cfg_base` (`id`, `site_name`, `login_logo`, `login_bg`, `back_logo`, `copy_right`) VALUES ('1', '云帆考试系统V2', 'https://be2.yfhl.net/upload/file/2025/04/23/1914966466990272513.png', 'https://be2.yfhl.net/upload/file/2025/04/23/1914966559726333954.png', 'https://be2.yfhl.net/upload/file/2025/04/23/1914966492999151618.png', '<p>&copy; 2025 北京云帆互联科技有限公司官网： <a href=\"https://www.yfhl.net/\" target=\"_blank\">https://www.yfhl.net/</a> </p>');
+INSERT INTO `el_cfg_base` (`id`, `site_name`, `login_logo`, `login_bg`, `back_logo`, `copy_right`) VALUES ('1', '企业人才考核系统', '/brand-logo.png', '/login-illustration.svg', '/brand-logo.png', '');
 COMMIT;
 
 -- ----------------------------
@@ -87,7 +87,7 @@ CREATE TABLE `el_exam` (
 -- Records of el_exam
 -- ----------------------------
 BEGIN;
-INSERT INTO `el_exam` (`id`, `title`, `content`, `open_type`, `state`, `start_time`, `end_time`, `total_score`, `total_time`, `qualify_score`, `chance`, `hand_min`, `late_max`, `thanks`, `repo_id`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1915227067167539202', '云帆演示考试', '<p>1、本项目为云帆开源版考试系统。</p><p>2、为正常体验，将考试机会设置为不限制次数。</p><p>3、本系统每天自动重置系统数据，请不要上传重要资料。</p>', 1, 0, '2025-04-01 00:00:00', '2050-04-30 00:00:00', 150.00, 10, 90.00, 0, 0, 0, NULL, '1910524655864012801', '2025-04-24 10:11:31', '2025-04-27 15:33:25', '1000000000000000001', '1000000000000000001');
+INSERT INTO `el_exam` (`id`, `title`, `content`, `open_type`, `state`, `start_time`, `end_time`, `total_score`, `total_time`, `qualify_score`, `chance`, `hand_min`, `late_max`, `thanks`, `repo_id`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1915227067167539202', '示例考核', '<p>考核示例，请按实际岗位要求配置后发放。</p>', 1, 0, '2025-04-01 00:00:00', '2050-04-30 00:00:00', 150.00, 10, 90.00, 0, 0, 0, NULL, '1910524655864012801', '2025-04-24 10:11:31', '2025-04-27 15:33:25', '1000000000000000001', '1000000000000000001');
 COMMIT;
 
 -- ----------------------------
@@ -243,7 +243,7 @@ CREATE TABLE `el_repo` (
 -- Records of el_repo
 -- ----------------------------
 BEGIN;
-INSERT INTO `el_repo` (`id`, `title`, `cat_id`, `remark`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1910524655864012801', '云帆演示题库', '1915226614203678722', NULL, '2025-04-11 10:45:48', '2025-04-24 10:10:10', '1000000000000000001', '1000000000000000001');
+INSERT INTO `el_repo` (`id`, `title`, `cat_id`, `remark`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1910524655864012801', '示例题库', '1915226614203678722', NULL, '2025-04-11 10:45:48', '2025-04-24 10:10:10', '1000000000000000001', '1000000000000000001');
 COMMIT;
 
 -- ----------------------------
@@ -574,7 +574,7 @@ CREATE TABLE `el_sys_depart` (
 -- Records of el_sys_depart
 -- ----------------------------
 BEGIN;
-INSERT INTO `el_sys_depart` (`id`, `dept_type`, `parent_id`, `dept_name`, `dept_code`, `dept_level`, `sort`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1441328268501381121', 1, '0', '云帆互联', 'A01', 0, 2, '2021-09-24 17:06:52', '2021-09-24 17:06:52', '', '');
+INSERT INTO `el_sys_depart` (`id`, `dept_type`, `parent_id`, `dept_name`, `dept_code`, `dept_level`, `sort`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1441328268501381121', 1, '0', '全品轩', 'A01', 0, 2, '2021-09-24 17:06:52', '2021-09-24 17:06:52', '', '');
 INSERT INTO `el_sys_depart` (`id`, `dept_type`, `parent_id`, `dept_name`, `dept_code`, `dept_level`, `sort`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1447829893265002498', 1, '1441328268501381121', '技术部', 'A01A01', 0, 1, '2021-10-12 15:42:01', '2021-10-12 15:42:00', '10001', '');
 INSERT INTO `el_sys_depart` (`id`, `dept_type`, `parent_id`, `dept_name`, `dept_code`, `dept_level`, `sort`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1447829920330846210', 1, '1441328268501381121', '财务部', 'A01A02', 0, 2, '2021-10-12 15:42:07', '2021-10-12 15:42:07', '10001', '');
 INSERT INTO `el_sys_depart` (`id`, `dept_type`, `parent_id`, `dept_name`, `dept_code`, `dept_level`, `sort`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1447829960050905090', 1, '1441328268501381121', '商务部', 'A01A03', 0, 3, '2021-10-12 15:42:17', '2021-10-12 15:42:16', '10001', '');
@@ -664,7 +664,7 @@ INSERT INTO `el_sys_dic_value` (`id`, `dic_code`, `dic_value`, `title`, `parent_
 INSERT INTO `el_sys_dic_value` (`id`, `dic_code`, `dic_value`, `title`, `parent_id`, `remark`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1910604353570770946', 'qu_difficulty_level', 'extreme', '极难', '0', NULL, '2025-04-11 16:02:29', '2025-04-11 16:02:29', '', '');
 INSERT INTO `el_sys_dic_value` (`id`, `dic_code`, `dic_value`, `title`, `parent_id`, `remark`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1914160827720196097', 'yes_no', '1', '是', '0', NULL, '2025-04-21 11:34:39', '2025-04-21 11:34:39', '', '');
 INSERT INTO `el_sys_dic_value` (`id`, `dic_code`, `dic_value`, `title`, `parent_id`, `remark`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1914160855650066434', 'yes_no', '0', '否', '0', NULL, '2025-04-21 11:34:46', '2025-04-21 11:34:46', '', '');
-INSERT INTO `el_sys_dic_value` (`id`, `dic_code`, `dic_value`, `title`, `parent_id`, `remark`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1915226614203678722', 'repo_catalog', '1915226614203678722', '云帆演示', '0', NULL, '2025-04-24 10:09:42', '2025-04-24 10:09:42', '', '');
+INSERT INTO `el_sys_dic_value` (`id`, `dic_code`, `dic_value`, `title`, `parent_id`, `remark`, `create_time`, `update_time`, `create_by`, `update_by`) VALUES ('1915226614203678722', 'repo_catalog', '1915226614203678722', '示例分类', '0', NULL, '2025-04-24 10:09:42', '2025-04-24 10:09:42', '', '');
 COMMIT;
 
 -- ----------------------------
@@ -907,8 +907,8 @@ CREATE TABLE `el_sys_user` (
 -- Records of el_sys_user
 -- ----------------------------
 BEGIN;
-INSERT INTO `el_sys_user` (`id`, `user_name`, `real_name`, `avatar`, `password`, `salt`, `state`, `id_card`, `mobile`, `email`, `dept_code`, `create_time`, `create_by`, `update_time`, `update_by`) VALUES ('1000000000000000001', 'admin', '云帆超管', 'https://be2.yfhl.net/upload/file/2025/04/23/1914975014591750145.jpeg', '05c0de3b9209d13bd07add35970563b0', 'HhwDnq', 0, '', '', '', 'A01A01', '2020-12-03 16:52:10', '', '2025-04-24 15:04:28', '1000000000000000001');
-INSERT INTO `el_sys_user` (`id`, `user_name`, `real_name`, `avatar`, `password`, `salt`, `state`, `id_card`, `mobile`, `email`, `dept_code`, `create_time`, `create_by`, `update_time`, `update_by`) VALUES ('1914226980618383361', 'student', '云帆学员', 'https://be2.yfhl.net/upload/file/2025/04/24/1915311363890958337.jpeg', '57adae05a2485af81eaa722ac86f4f23', 'QvEQcj', 0, '', '', NULL, 'A01', '2025-04-21 15:57:31', '1000000000000000001', '2025-04-24 15:36:44', '1000000000000000001');
+INSERT INTO `el_sys_user` (`id`, `user_name`, `real_name`, `avatar`, `password`, `salt`, `state`, `id_card`, `mobile`, `email`, `dept_code`, `create_time`, `create_by`, `update_time`, `update_by`) VALUES ('1000000000000000001', 'admin', '系统管理员', '/default-avatar.jpg', '05c0de3b9209d13bd07add35970563b0', 'HhwDnq', 0, '', '', '', 'A01A01', '2020-12-03 16:52:10', '', '2025-04-24 15:04:28', '1000000000000000001');
+INSERT INTO `el_sys_user` (`id`, `user_name`, `real_name`, `avatar`, `password`, `salt`, `state`, `id_card`, `mobile`, `email`, `dept_code`, `create_time`, `create_by`, `update_time`, `update_by`) VALUES ('1914226980618383361', 'student', '示例员工', '/default-avatar.jpg', '57adae05a2485af81eaa722ac86f4f23', 'QvEQcj', 0, '', '', NULL, 'A01', '2025-04-21 15:57:31', '1000000000000000001', '2025-04-24 15:36:44', '1000000000000000001');
 COMMIT;
 
 -- ----------------------------
@@ -954,7 +954,7 @@ CREATE TABLE `pl_plugin_data` (
 -- Records of pl_plugin_data
 -- ----------------------------
 BEGIN;
-INSERT INTO `pl_plugin_data` (`id`, `code`, `title`, `schema_id`, `group_id`, `config_data`, `service_clazz`, `component`, `in_use`, `state`) VALUES ('10002', 'upload-local', '本地上传', 'upload_local', 'upload', '{\"localDir\":\"/data/upload/be2/\",\"visitUrl\":\"https://be2.yfhl.net\"}', 'com.yf.plugins.upload.local.service.impl.LocalUpServiceImpl', ' ', 1, '0');
+INSERT INTO `pl_plugin_data` (`id`, `code`, `title`, `schema_id`, `group_id`, `config_data`, `service_clazz`, `component`, `in_use`, `state`) VALUES ('10002', 'upload-local', '本地上传', 'upload_local', 'upload', '{\"localDir\":\"/data/upload/be2/\",\"visitUrl\":\"\"}', 'com.yf.plugins.upload.local.service.impl.LocalUpServiceImpl', ' ', 1, '0');
 COMMIT;
 
 -- ----------------------------

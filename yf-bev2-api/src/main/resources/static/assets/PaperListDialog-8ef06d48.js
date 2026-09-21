@@ -1,0 +1,1 @@
+import{_ as t}from"./PaperListDialog.vue_vue_type_script_setup_true_lang-c4c55ddc.js";import"./DataTable.vue_vue_type_script_setup_true_lang-4ecab391.js";import"./index-aca63980.js";/* empty css                 *//* empty css                  *//* empty css                       */export{t as default};
