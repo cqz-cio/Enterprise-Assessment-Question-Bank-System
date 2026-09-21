@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew enterprise exam test IP certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/enterprise-exam-test/certbot/bin/certbot renew --non-interactive --no-random-sleep-on-renew --config-dir /opt/enterprise-exam-test/tls --work-dir /opt/enterprise-exam-test/certbot-work --logs-dir /opt/enterprise-exam-test/certbot-logs --deploy-hook "/usr/sbin/nginx -t && /bin/systemctl reload nginx"
+TimeoutStartSec=180
+PrivateTmp=true
+UMask=0077

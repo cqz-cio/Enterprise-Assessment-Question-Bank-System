@@ -1,0 +1,42 @@
+name: enterprise-exam-test
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    env_file: ./secrets/mysql.env
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --max-connections=60
+      - --performance-schema=OFF
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - 127.0.0.1:13307:3306
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_ROOT_PASSWORD" mysql -uroot -h127.0.0.1 -Nse "SELECT 1"']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, /usr/local/etc/redis/redis.conf]
+    volumes:
+      - ./secrets/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+      - 127.0.0.1:16380:6379
+    mem_limit: 96m
+    cpus: 0.25
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}
+
+volumes:
+  mysql-data:
