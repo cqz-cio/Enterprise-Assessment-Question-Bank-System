@@ -40,6 +40,7 @@ import { TreeColumnType } from '@/components/DataTree/src/types'
 import { saveApi } from '@/api/sys/depart'
 import DataTree from '@/components/DataTree/src/DataTree.vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import type Node from 'element-plus/es/components/tree/src/model/node'
 import type { AllowDropType } from 'element-plus/es/components/tree/src/tree.type'
 
 const dataTree = ref()

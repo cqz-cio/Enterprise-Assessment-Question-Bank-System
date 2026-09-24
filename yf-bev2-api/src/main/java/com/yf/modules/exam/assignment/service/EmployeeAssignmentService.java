@@ -92,7 +92,8 @@ public class EmployeeAssignmentService {
         }
         if (exam.getQualifyScore()==null || exam.getQualifyScore().signum()<0 || exam.getQualifyScore().compareTo(total)>0) throw error("模板及格分配置无效");
         Date now = new Date();
-        Date from = req.getValidFrom()==null ? now : req.getValidFrom();
+        // Match DATETIME precision without rounding an immediate task into the future.
+        Date from = req.getValidFrom()==null ? new Date(now.getTime() / 1000 * 1000) : req.getValidFrom();
         Date until = req.getExpireAt()==null ? new Date(from.getTime()+Duration.ofDays(14).toMillis()) : req.getExpireAt();
         if (!until.after(from) || !until.after(now)) throw error("截止时间必须晚于开始时间和当前时间");
         String batch = req.getBatchNo().trim();

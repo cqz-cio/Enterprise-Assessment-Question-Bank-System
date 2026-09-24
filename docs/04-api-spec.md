@@ -262,7 +262,7 @@ Permission: exam:assignment:candidate:add
 4. 创建 `el_exam_assignment`。
 5. 生成 6 位考核码并只在本次响应中返回明文。
 
-时间规则：`validFrom` 默认当前时间；`expireAt` 默认等于 `validFrom + 14 天`。前端创建表单自动带出这两个值，HR 可以在提交前调整。
+时间规则：`validFrom` 默认当前时间并向下取整到秒，避免 MySQL DATETIME 舍入后短暂晚于当前时间；`expireAt` 默认等于 `validFrom + 14 天`。前端创建表单自动带出这两个值，HR 可以在提交前调整。
 
 响应：
 
@@ -288,7 +288,8 @@ Permission: exam:assignment:candidate:add
 | `/import` | `{"taskId":"..."}` | 逐行提交后的最终结果；相同任务重试返回同一结果 |
 | `/import-error` | `{"taskId":"..."}` | 本任务的实际错误/重复行 XLSX，含原始行号和原因 |
 | `/import-codes` | `{"taskId":"..."}` | 已成功发放记录的 XLSX，含 6 位考核码和入口路径 |
-| `/import-close` | `{"taskId":"..."}` | 清除本任务暂存数据 |
+| `/import-close` | `{"taskId":"..."}` | 删除未发放预览；已发放/部分发放任务仍保留 |
+| `/import-restore` | 空 JSON 或 `{"taskId":"..."}` | 恢复本人的最近任务或指定任务；无最近任务时 data 为 null |
 
 模板工作表名为“候选人数据”，9 列依次为姓名、候选人编号、手机号、邮箱、部门编码、岗位编码、批次、生效时间、截止时间，全部必填。仅 XLSX，最大 5 MB/500 条，展开后最大 32 MB；不接受公式/错误单元格。时间采用 `yyyy-MM-dd HH:mm:ss`（上海时区），必须有效且截止时间尚未过去。编号和手机号按文本保存。
 
@@ -298,7 +299,7 @@ Permission: exam:assignment:candidate:add
 
 任务绑定创建者，其他账号即使有导入权限也不能读取、提交或关闭。个人范围可创建本人负责的候选人，本部门/下级部门/全量范围按当前数据库配置校验。下载及重复获取成功结果重新检查数据范围。所有个人数据和文件响应使用 `Cache-Control: no-store`。
 
-任务仅驻留当前后端内存，预览和完成后各保留 15 分钟；最多 100 个任务、每人 10 个，按分钟清理。关闭或后端重启即失效；多实例部署需要粘性路由。明文考核码不写数据库、Redis、日志或服务端文件，离开前下载清单；响应丢失可在同一任务内重试，重启后重传只跳过已有记录，必要时通过原重置口令入口恢复发放。
+按 D-039/V025，任务载荷在数据库中使用 AES-256-GCM 认证加密保存；预览保留 15 分钟，每人最多 10 个待确认任务；开始处理后保留 30 天，按分钟删除到期任务。关闭已发放任务不删除清单，重启后可恢复；同一账号上传字节完全相同的文件返回未到期的原任务。不同账号不能找回他人清单。每行发放与加密归档在同一数据库事务提交，数据库行锁串行化同任务提交；中断后只继续未处理行，不再依赖内存或粘性路由。派生密钥使用既有 pepper 的专用 HMAC 域，不写数据库或日志；部署必须保留原 pepper。分配表仍只保存安全摘要。读取成功行时重新核对当前考核码摘要、停用及到期状态，失效码 accessCode 为空、message 说明原因，Excel 对应码单元格留空。历史版本已丢失清单无法恢复。
 
 ### 4.3 候选人列表
 
@@ -698,7 +699,7 @@ Permission: exam:grading:view AND exam:grading:finalize
 | `/employee/result-detail` | `exam:assignment:employee:result` | 已完成任务的管理试卷详情 |
 | `/my-paging` | `exam:assignment:my:view` | 当前登录员工的任务及状态计数 |
 
-创建请求：`{examId,userIds,batchNo,validFrom?,expireAt?}`。userIds 为 1–500 个非空 ID，服务端去重；批次去除首尾空格后非空，最多 64 字符。日期格式 `yyyy-MM-dd HH:mm:ss`，Asia/Shanghai；省略则当前开始、14 天截止，截止必须晚于开始和当前时间。所有用户必须为模板部门的正常 EMPLOYEE 且非 CANDIDATE；校验模板、岗位部门关联、目标职级、题库、客观题规则、可用题量和及格分后事务写入。返回 `{created,existing,assignmentIds}`；重复自然键复用原任务，不更新日期、不恢复状态、不重建试卷。无效成员整批失败。
+创建请求：`{examId,userIds,batchNo,validFrom?,expireAt?}`。userIds 为 1–500 个非空 ID，服务端去重；批次去除首尾空格后非空，最多 64 字符。日期格式 `yyyy-MM-dd HH:mm:ss`，Asia/Shanghai；省略则以当前时间向下取整到秒作为开始、14 天截止，截止必须晚于开始和当前时间。所有用户必须为模板部门的正常 EMPLOYEE 且非 CANDIDATE；校验模板、岗位部门关联、目标职级、题库、客观题规则、可用题量和及格分后事务写入。返回 `{created,existing,assignmentIds}`；重复自然键复用原任务，不更新日期、不恢复状态、不重建试卷。无效成员整批失败。
 
 查询请求使用**平铺对象**：`{current:1,size:10,keyword?,departId?,positionId?,sceneType?,batchNo?,status?}`，不是原 DataTable 的 params 包装。current 最大 100000，size 为 1–500；所有 SQL 值使用绑定参数，不接收自定义排序。options 要求部门，支持姓名/工号 keyword；templates 要求部门，可按岗位/场景筛选，返回 id/title/positionId/positionName/sceneType/totalTime/questionCount。
 

@@ -79,7 +79,9 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
         }
         Exam exam = matched.get(0);
 
-        Date validFrom = reqDTO.getValidFrom() == null ? new Date() : reqDTO.getValidFrom();
+        // DATETIME has second precision; avoid MySQL rounding an immediate start into the future.
+        Date validFrom = reqDTO.getValidFrom() == null
+                ? new Date(System.currentTimeMillis() / 1000 * 1000) : reqDTO.getValidFrom();
         Date expireAt = reqDTO.getExpireAt() == null
                 ? new Date(validFrom.getTime() + DEFAULT_VALIDITY.toMillis()) : reqDTO.getExpireAt();
         if (!expireAt.after(validFrom)) {

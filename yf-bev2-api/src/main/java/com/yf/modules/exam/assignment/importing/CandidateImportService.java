@@ -14,7 +14,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.*;
 import java.time.format.ResolverStyle;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.security.MessageDigest;
+import com.yf.modules.exam.assignment.service.AccessCodeManager;
+import com.yf.modules.exam.assignment.importing.CandidateImportArchive.Task;
 
 @Service @RequiredArgsConstructor
 public class CandidateImportService {
@@ -22,13 +24,8 @@ public class CandidateImportService {
     private final ExamAssignmentService assignments;
     private final CandidateIdentityGuard guard;
     private final Validator validator;
-    private static final long TTL = 15 * 60_000L;
-    // Credentials never enter Redis, the database, logs or a disk-backed session.
-    private final Map<String,Task> tasks = new ConcurrentHashMap<>();
-    private static class Task {
-        String owner, filename; volatile long expires; boolean committed; volatile boolean running;
-        List<ImportRow> rows;
-    }
+    private final CandidateImportArchive archive;
+    private final AccessCodeManager codes;
     record Scope(String userId, int level, String department) {
         boolean allows(String departmentCode) {
             return level==1 || level==4 || (department!=null && departmentCode!=null &&
@@ -60,18 +57,17 @@ public class CandidateImportService {
     public ImportView preview(MultipartFile file) {
         Scope scope=scope();
         List<ImportRow> rows=CandidateImportWorkbook.read(file);
+        String fingerprint;
+        try { fingerprint=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file.getBytes())); }
+        catch(Exception ex) { throw new ServiceException("文件读取失败，请重新上传"); }
+        Task previous=archive.find(scope.userId(),fingerprint);
+        if(previous!=null) { checkResultScope(previous,scope); return view(previous.id,previous); }
         Set<String> keys=new HashSet<>();
         for(var row:rows) validate(row,scope,keys);
-        Task task=new Task(); task.owner=scope.userId(); task.filename=file.getOriginalFilename();
-        task.expires=System.currentTimeMillis()+TTL; task.rows=rows;
-        String id=UUID.randomUUID().toString();
-        synchronized(tasks) {
-            cleanup();
-            if(tasks.size()>=100 || tasks.values().stream().filter(t->t.owner.equals(task.owner)).count()>=10)
-                throw new ServiceException("暂存任务过多，请关闭旧任务或 15 分钟后重试");
-            tasks.put(id,task);
-        }
-        return view(id,task);
+        Task task=new Task(); task.id=UUID.randomUUID().toString(); task.owner=scope.userId(); task.filename=file.getOriginalFilename();
+        task.fileHash=fingerprint; task.expires=System.currentTimeMillis()+CandidateImportArchive.PREVIEW_TTL; task.rows=rows;
+        archive.create(task);
+        return view(task.id,task);
     }
 
     private CandidateCreateReqDTO validate(ImportRow row,Scope scope,Set<String> keys) {
@@ -109,60 +105,92 @@ public class CandidateImportService {
         catch(RuntimeException ex) { throw new ServiceException("时间格式应为 yyyy-MM-dd HH:mm:ss，且必须为有效日期"); }
     }
 
-    private Task task(String id,Scope scope) {
-        Task t=tasks.get(id);
-        if(t==null || !t.owner.equals(scope.userId()) || t.expires<System.currentTimeMillis()) throw new ServiceException("导入会话不存在、已过期或无权访问，请重新校验文件");
-        return t;
+    private static class RowFailure extends RuntimeException {
+        final int rowNumber; final String status, message;
+        RowFailure(int rowNumber,String status,String message) { this.rowNumber=rowNumber;this.status=status;this.message=message; }
+    }
+    private void saveProgress(Task task) {
+        if(task.rows.stream().noneMatch(r->"VALID".equals(r.getStatus()))) task.committed=true;
+        // A process interruption after the first committed row must not lose its code.
+        task.expires=System.currentTimeMillis()+CandidateImportArchive.RESULT_TTL;
+        archive.save(task);
     }
     public ImportView commit(String id) {
-        Scope scope=scope(); Task task=task(id,scope);
-        synchronized(task) {
-            if(task.committed) { checkResultScope(task,scope); return view(id,task); }
-            task.running=true;
+        Scope initial=scope();
+        while(true) {
             try {
-                Set<String> keys=new HashSet<>();
-                for(var row:task.rows) {
-                    // Only records explicitly shown as importable in the preview may be issued.
-                    if(!"VALID".equals(row.getStatus())) continue;
+                ImportView result=archive.locked(id,initial.userId(),task->{
+                    Scope current=scope();
+                    if(task.committed) { checkResultScope(task,current); return view(id,task); }
+                    ImportRow row=task.rows.stream().filter(r->"VALID".equals(r.getStatus())).findFirst().orElse(null);
+                    if(row==null) { saveProgress(task); checkResultScope(task,current); return view(id,task); }
                     row.setMessage(null);
-                    var req=validate(row,scope(),keys);
-                    if(req==null) continue;
-                    try {
-                        var issued=assignments.createCandidate(req); // each row has its own transaction
-                        row.setAssignmentId(issued.getAssignmentId()); row.setAccessCode(issued.getAccessCode());
-                        row.setExamTitle(issued.getExamTitle()); row.setStatus("SUCCESS"); row.setMessage("已发放");
-                    } catch(CandidateIdentityGuard.DuplicateCandidateException ex) {
-                        row.setStatus("DUPLICATE"); row.setMessage("该编号在本批次已有考核，将跳过");
-                    } catch(ServiceException ex) {
-                        row.setStatus("ERROR"); row.setMessage(ex.getMessage());
-                    } catch(RuntimeException ex) {
-                        // Never expose SQL values or credentials in row-level reports.
-                        row.setStatus("ERROR"); row.setMessage("本行发放失败，请联系管理员后重试");
+                    var req=validate(row,current,new HashSet<>());
+                    if(req!=null) {
+                        try {
+                            // createCandidate joins this transaction: assignment and encrypted result commit together.
+                            var issued=assignments.createCandidate(req);
+                            row.setAssignmentId(issued.getAssignmentId()); row.setAccessCode(issued.getAccessCode());
+                            row.setExamTitle(issued.getExamTitle()); row.setStatus("SUCCESS"); row.setMessage("已发放");
+                        } catch(CandidateIdentityGuard.DuplicateCandidateException ex) {
+                            throw new RowFailure(row.getRowNumber(),"DUPLICATE","该编号在本批次已有考核，将跳过");
+                        } catch(ServiceException ex) {
+                            throw new RowFailure(row.getRowNumber(),"ERROR",ex.getMessage());
+                        } catch(RuntimeException ex) {
+                            throw new RowFailure(row.getRowNumber(),"ERROR","本行发放失败，请联系管理员后重试");
+                        }
                     }
-                }
-                task.committed=true; task.expires=System.currentTimeMillis()+TTL;
-                return view(id,task);
-            } finally { task.running=false; }
+                    // Saving outside the catch ensures archive failures roll back issuance and remain retryable.
+                    saveProgress(task);
+                    if(task.committed) { checkResultScope(task,current); return view(id,task); }
+                    return null;
+                });
+                if(result!=null) return result;
+            } catch(RowFailure failure) {
+                // The failed row's transaction rolled back, including the natural-key reservation.
+                archive.locked(id,initial.userId(),task->{
+                    scope();
+                    for(var row:task.rows) if(row.getRowNumber()==failure.rowNumber && "VALID".equals(row.getStatus())) {
+                        row.setStatus(failure.status); row.setMessage(failure.message);
+                    }
+                    saveProgress(task);return null;
+                });
+            }
         }
     }
-    public byte[] report(String id,boolean codes) {
-        Scope scope=scope(); Task task=task(id,scope);
-        synchronized(task) {
-            if(codes && !task.committed) throw new ServiceException("请先确认导入");
-            // Recheck the current scope before returning personal data or credentials.
-            checkResultScope(task,scope);
-            return CandidateImportWorkbook.report(task.rows,codes);
-        }
+    public ImportView restore(String id) {
+        Scope scope=scope();
+        Task task=id==null || id.isBlank()?archive.find(scope.userId(),null):archive.get(id,scope.userId());
+        if(task==null) return null;
+        checkResultScope(task,scope);
+        return view(task.id,task);
     }
+    public byte[] report(String id,boolean includeCodes) {
+        Scope scope=scope(); Task task=archive.get(id,scope.userId());
+        if(includeCodes && !task.committed) throw new ServiceException("请先确认导入");
+        checkResultScope(task,scope);
+        return CandidateImportWorkbook.report(task.rows,includeCodes);
+    }
+    private record Credential(String department,String lookup,String status,Date expires) { }
     private void checkResultScope(Task task,Scope scope) {
         for(var row:task.rows) if("SUCCESS".equals(row.getStatus())) {
-            String department=db.queryForObject("SELECT d.dept_code FROM el_exam_assignment a JOIN el_sys_depart d ON d.id=a.depart_id WHERE a.id=?",String.class,row.getAssignmentId());
-            if(!scope.allows(department)) throw new ServiceException("数据权限已变化，无法读取本次清单");
+            // Explicit getTimestamp: MySQL's untyped DATETIME getObject returns LocalDateTime.
+            var found=db.query("SELECT d.dept_code,a.access_code_lookup,a.status,a.expire_at FROM el_exam_assignment a JOIN el_sys_depart d ON d.id=a.depart_id WHERE a.id=?",
+                    (rs,index)->new Credential(rs.getString("dept_code"),rs.getString("access_code_lookup"),
+                            rs.getString("status"),rs.getTimestamp("expire_at")),row.getAssignmentId());
+            if(found.size()!=1 || !scope.allows(found.get(0).department()))
+                throw new ServiceException("数据权限已变化，无法读取本次清单");
+            var assignment=found.get(0);
+            if(row.getAccessCode()!=null && (!codes.lookup(row.getAccessCode()).equals(assignment.lookup())
+                    || "DISABLED".equals(assignment.status())
+                    || assignment.expires()==null || !assignment.expires().after(new Date()))) {
+                row.setAccessCode(null); row.setMessage("考核码已重置、停用或过期，请在候选人列表核对");
+            }
         }
     }
-    public void close(String id) { Task t=task(id,scope()); synchronized(t) { tasks.remove(id,t); } }
+    public void close(String id) { archive.close(id,scope().userId()); }
     @Scheduled(fixedDelay=60000)
-    public void cleanup() { tasks.entrySet().removeIf(e->!e.getValue().running && e.getValue().expires<System.currentTimeMillis()); }
+    public void cleanup() { archive.cleanup(); }
     private ImportView view(String id,Task t) {
         ImportView result=new ImportView(); result.setTaskId(id); result.setFileName(t.filename); result.setExpiresAt(t.expires); result.setCommitted(t.committed); result.setRows(new ArrayList<>(t.rows)); result.setTotalCount(t.rows.size());
         for(var r:t.rows) switch(r.getStatus()) {

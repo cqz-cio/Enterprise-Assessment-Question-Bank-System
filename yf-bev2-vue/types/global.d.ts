@@ -26,9 +26,7 @@ declare global {
   declare type LayoutType = 'classic' | 'topLeft' | 'top'
 
   declare type AxiosHeaders =
-    | 'application/json'
-    | 'application/x-www-form-urlencoded'
-    | 'multipart/form-data'
+    'application/json' | 'application/x-www-form-urlencoded' | 'multipart/form-data'
 
   declare type AxiosMethod = 'get' | 'post' | 'delete' | 'put'
 
@@ -44,8 +42,9 @@ declare global {
   }
 
   declare interface IResponse<T = any> {
-    code: string
-    data: T extends any ? T : T & any
+    code: number
+    msg?: string
+    data: T
   }
 
   declare interface ThemeTypes {

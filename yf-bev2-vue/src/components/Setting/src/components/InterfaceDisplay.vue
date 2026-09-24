@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ElSwitch, ElMessage } from 'element-plus'
+import { ElSwitch } from 'element-plus'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useAppStore } from '@/store/modules/app'
 import { computed, ref, watch } from 'vue'
@@ -105,22 +105,6 @@ const greyMode = ref(appStore.getGreyMode)
 
 const greyModeChange = (show: boolean) => {
   appStore.setGreyMode(show)
-}
-
-// 动态路由
-const dynamicRouter = ref(appStore.getDynamicRouter)
-
-const dynamicRouterChange = (show: boolean) => {
-  ElMessage.info(t('setting.reExperienced'))
-  appStore.setDynamicRouter(show)
-}
-
-// 服务端动态路由
-const serverDynamicRouter = ref(appStore.getServerDynamicRouter)
-
-const serverDynamicRouterChange = (show: boolean) => {
-  ElMessage.info(t('setting.reExperienced'))
-  appStore.setServerDynamicRouter(show)
 }
 
 // 固定菜单

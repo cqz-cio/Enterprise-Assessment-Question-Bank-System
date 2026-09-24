@@ -178,7 +178,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { onMounted, reactive, ref } from 'vue'
 import { treeApi, saveApi, deleteApi, detailApi, sortApi } from '@/api/sys/menu'
 import { Icon } from '@/components/Icon'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, NodeDropType } from 'element-plus'
 import { ElMessageBox, ElMessage, ElTree } from 'element-plus'
 import type { MenuDataType } from './types'
 import type Node from 'element-plus/es/components/tree/src/model/node'
@@ -409,7 +409,7 @@ const allowDrop = (draggingNode: Node, dropNode: Node, type: AllowDropType) => {
 }
 
 // 执行排序
-const handleDrag = (draggingNode: Node, dropNode: Node, dropType: DropType) => {
+const handleDrag = (draggingNode: Node, dropNode: Node, dropType: NodeDropType) => {
   sortApi({ form: draggingNode.data.id, to: dropNode.data.id, dropType: dropType }).then(() => {
     ElMessage({
       showClose: true,

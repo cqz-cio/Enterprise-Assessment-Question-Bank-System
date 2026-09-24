@@ -42,6 +42,7 @@
 </template>
 
 <script lang="ts" setup>
+import type { ExamType } from '../types'
 import { ContentWrap } from '@/components/ContentWrap'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -52,12 +53,14 @@ import { ElMessageBox } from 'element-plus'
 const { push } = useRouter()
 
 const route = useRoute()
-const examId = route.query.id
+const examId = typeof route.query.id === 'string' ? route.query.id : ''
 const loading = ref(false)
 const startDisabled = ref(true)
 
-const detail = ref({})
-const checkData = ref({ validated: true })
+const detail = ref<ExamType>({})
+const checkData = ref<{ validated: boolean; message?: string; paperId?: string }>({
+  validated: true
+})
 
 // 创建考试并进入
 const startExam = () => {

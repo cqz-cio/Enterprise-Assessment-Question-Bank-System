@@ -5,9 +5,20 @@ import {
   ElPagination,
   ComponentSize,
   ElTooltipProps,
-  ElImage
+  ElImage,
+  TableInstance
 } from 'element-plus'
-import { defineComponent, PropType, ref, computed, unref, watch, onMounted, h } from 'vue'
+import {
+  defineComponent,
+  PropType,
+  ref,
+  shallowRef,
+  computed,
+  unref,
+  watch,
+  onMounted,
+  h
+} from 'vue'
 import { propTypes } from '@/utils/propTypes'
 import { setIndex } from './helper'
 import type { TableProps, TableColumn, Pagination, TableSetProps } from './types'
@@ -171,7 +182,7 @@ export default defineComponent({
   },
   emits: ['update:pageSize', 'update:currentPage', 'register', 'refresh', 'sortable-change'],
   setup(props, { attrs, emit, slots, expose }) {
-    const elTableRef = ref<ComponentRef<typeof ElTable>>()
+    const elTableRef = shallowRef<TableInstance>()
 
     onMounted(() => {
       const tableRef = unref(elTableRef)
@@ -180,8 +191,8 @@ export default defineComponent({
 
     const pageSizeRef = ref(props.pageSize)
     const currentPageRef = ref(props.currentPage)
-    const outsideProps = ref<TableProps>({})
-    const mergeProps = ref<TableProps>({})
+    const outsideProps = shallowRef<TableProps>({})
+    const mergeProps = shallowRef<TableProps>({})
 
     const getProps = computed(() => {
       const propsObj = { ...props }
@@ -190,7 +201,7 @@ export default defineComponent({
     })
 
     const setProps = (props: TableProps = {}) => {
-      mergeProps.value = Object.assign(unref(mergeProps), props)
+      mergeProps.value = { ...unref(mergeProps), ...props }
       outsideProps.value = { ...props } as any
     }
 

@@ -4,7 +4,6 @@ import { computed, ref } from 'vue'
 import { ContentWrap } from '@/components/ContentWrap'
 
 const appStore = useAppStore()
-const userInfo = computed(() => appStore.getUserInfo)
 const siteInfo = computed(() => appStore.getSiteInfo)
 const loading = ref(false)
 </script>

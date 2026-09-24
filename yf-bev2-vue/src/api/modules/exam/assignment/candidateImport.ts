@@ -44,6 +44,10 @@ export const previewCandidates = (file: File): Promise<IResponse<CandidateImport
 }
 export const commitCandidates = (taskId: string): Promise<IResponse<CandidateImportView>> =>
   call('import', { taskId })
+export const restoreCandidateImport = (
+  taskId?: string
+): Promise<IResponse<CandidateImportView | null>> =>
+  call('import-restore', taskId ? { taskId } : {})
 export const closeCandidateImport = (taskId: string) => call('import-close', { taskId })
 
 export async function downloadCandidateImport(

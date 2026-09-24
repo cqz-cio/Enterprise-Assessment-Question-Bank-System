@@ -33,6 +33,11 @@ public class CandidateImportController extends BaseController {
     public ResponseEntity<byte[]> codes(@Valid @RequestBody TaskRequest req) { return download(service.report(req.taskId(),true),"candidate-access-codes.xlsx"); }
     @PostMapping("/import-close")
     public ApiRest<?> close(@Valid @RequestBody TaskRequest req) { service.close(req.taskId()); return success(); }
+    public record RestoreRequest(String taskId) { }
+    @PostMapping("/import-restore")
+    public ApiRest<ImportView> restore(@RequestBody(required=false) RestoreRequest req, jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control","no-store"); return success(service.restore(req==null?null:req.taskId()));
+    }
     private ResponseEntity<byte[]> download(byte[] body,String name) {
         return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL,"no-store")
                 .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename="+name)

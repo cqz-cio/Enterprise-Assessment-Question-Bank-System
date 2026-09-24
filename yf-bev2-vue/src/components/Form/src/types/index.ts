@@ -17,12 +17,10 @@ import {
   DatePickerProps,
   FormItemProps as ElFormItemProps,
   FormProps as ElFormProps,
-  ISelectProps,
+  SelectProps,
   UploadProps
 } from 'element-plus'
 import { IEditorConfig } from '@wangeditor/editor'
-import { JsonEditorProps } from '@/components/JsonEditor'
-import { IAgreeProps } from '@/components/IAgree'
 import { CSSProperties } from 'vue'
 
 export interface PlaceholderModel {
@@ -55,10 +53,7 @@ export enum ComponentNameEnum {
   INPUT_PASSWORD = 'InputPassword',
   EDITOR = 'Editor',
   TREE_SELECT = 'TreeSelect',
-  UPLOAD = 'Upload',
-  JSON_EDITOR = 'JsonEditor',
-  ICON_PICKER = 'IconPicker',
-  I_AGREE = 'IAgree'
+  UPLOAD = 'Upload'
 }
 
 type CamelCaseComponentName = keyof typeof ComponentNameEnum extends infer K
@@ -127,7 +122,7 @@ export interface SelectOption {
   [key: string]: any
 }
 
-export interface SelectComponentProps extends Omit<Partial<ISelectProps>, 'options'> {
+export interface SelectComponentProps extends Omit<Partial<SelectProps>, 'options' | 'props'> {
   /**
    * 数据源的字段别名
    */
@@ -627,8 +622,6 @@ export interface FormSchema {
     | InputPasswordComponentProps
     | TreeSelectComponentProps
     | UploadComponentProps
-    | JsonEditorProps
-    | IAgreeProps
     | any
 
   /**

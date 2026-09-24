@@ -71,7 +71,7 @@ import PaperListDialog from '@/views/Exam/Exam/components/PaperListDialog.vue'
 // 获取参数
 const route = useRoute()
 
-const examId = route.query.id || ''
+const examId = typeof route.query.id === 'string' ? route.query.id : ''
 
 // 表格查询参数
 let query = ref<TableQueryType>({

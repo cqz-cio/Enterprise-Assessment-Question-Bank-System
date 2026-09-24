@@ -7,6 +7,7 @@ import {
   previewCandidates,
   commitCandidates,
   closeCandidateImport,
+  restoreCandidateImport,
   downloadCandidateImport
 } from '@/api/modules/exam/assignment/candidateImport'
 import type { CandidateImportView } from '@/api/modules/exam/assignment/candidateImport'
@@ -46,17 +47,13 @@ const rows = computed(() =>
   )
 )
 const entry = `${window.location.origin}/#/exam-entry`
-const unsaved = computed(
-  () => uncertain.value || (step.value === 2 && !!view.value?.successCount && !saved.value)
-)
+const unsaved = computed(() => uncertain.value)
 async function allowLeave() {
   if (busy.value) return false
   if (!unsaved.value) return true
   try {
     await ElMessageBox.confirm(
-      uncertain.value
-        ? '导入响应尚未确认，部分记录可能已发放。建议先重试获取本次结果。确认离开？'
-        : '尚未下载考核码清单。离开后不能重新查看本次明文考核码，确认离开？',
+      '导入响应尚未确认，部分记录可能已发放。结果已保存，建议先重试获取本次结果。确认离开？',
       '保存发放清单',
       { type: 'warning', confirmButtonText: '确认离开', cancelButtonText: '继续保存' }
     )
@@ -91,8 +88,21 @@ function reset() {
 }
 watch(
   () => props.visible,
-  (visible) => {
-    if (visible) reset()
+  async (visible) => {
+    if (!visible) return
+    reset()
+    busy.value = true
+    try {
+      const restored = (await restoreCandidateImport()).data
+      if (restored) {
+        view.value = restored
+        step.value = restored.committed ? 2 : 1
+      }
+    } catch (e: any) {
+      error.value = e.message || '历史清单恢复失败，请稍后重新打开或上传原文件重试'
+    } finally {
+      busy.value = false
+    }
   }
 )
 function choose(item: UploadFile, files: UploadFiles) {
@@ -117,7 +127,7 @@ async function validate() {
   error.value = ''
   try {
     view.value = (await previewCandidates(file.value)).data
-    step.value = 1
+    step.value = view.value.committed ? 2 : 1
     filter.value = 'ALL'
   } catch (e: any) {
     error.value = e.message || '校验失败，请检查文件后重试'
@@ -302,7 +312,7 @@ onBeforeRouteLeave(async () => {
         </template>
         <template v-else>
           <el-alert
-            title="考核码仅在本次结果中提供，请离开前保存发放清单。本次结果在完成后保留 15 分钟，服务重启后失效；之后可在候选人列表重置口令。"
+            title="发放清单加密保留 30 天，重新打开可恢复最近一次结果；上传原文件可找回对应清单。已重置、停用或过期的考核码不再提供，请安全保管下载文件。"
             type="warning"
             :closable="false"
           />
@@ -358,7 +368,9 @@ onBeforeRouteLeave(async () => {
           >
           <el-table-column v-else label="考核码" width="120"
             ><template #default="{ row }"
-              ><span class="code">{{ row.accessCode }}</span></template
+              ><span class="code" :title="row.message">{{
+                row.accessCode || '已失效'
+              }}</span></template
             ></el-table-column
           >
         </el-table>
@@ -390,7 +402,7 @@ onBeforeRouteLeave(async () => {
               ? `预计新增 ${view?.validCount || 0} 名候选人，生成对应考核码`
               : saved
                 ? '清单已下载，请安全保管'
-                : '离开前请保存发放清单'
+                : '清单已加密保存，30 天内可恢复下载'
         }}</span
         ><div>
           <template v-if="step === 0"

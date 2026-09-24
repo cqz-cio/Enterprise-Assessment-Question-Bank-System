@@ -78,7 +78,7 @@ const handleSave = (formEl: FormInstance | undefined) => {
     if (valid) {
       const formData = unref(form)
       passApi(formData).then((res) => {
-        if (res.success) {
+        if (res.code === 0) {
           ElMessage({
             showClose: true,
             message: '修改成功，即将重新登录！',

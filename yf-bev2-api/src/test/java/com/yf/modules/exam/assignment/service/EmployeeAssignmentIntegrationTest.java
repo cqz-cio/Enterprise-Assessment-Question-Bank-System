@@ -75,6 +75,26 @@ class EmployeeAssignmentIntegrationTest {
         assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM el_exam_assignment WHERE access_code_hash IS NOT NULL OR access_code_lookup IS NOT NULL",Integer.class));
         assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM el_exam_assignment WHERE expire_at>DATEADD('DAY',13,NOW())",Integer.class));
     }
+    @Test void defaultWindowUsesWholeSecondsAndCanStartImmediately() {
+        String id=create("u");
+        Date from=db.queryForObject("SELECT valid_from FROM el_exam_assignment WHERE id=?", java.sql.Timestamp.class,id);
+        Date until=db.queryForObject("SELECT expire_at FROM el_exam_assignment WHERE id=?", java.sql.Timestamp.class,id);
+        assertNotNull(from); assertNotNull(until);
+        assertEquals(0,from.getTime()%1000,"MySQL DATETIME must not round the start into the next second");
+        assertFalse(from.after(new Date()));
+        assertEquals(java.time.Duration.ofDays(14).toMillis(),until.getTime()-from.getTime());
+        assertEquals("ASSIGNED",rows(service.paging(query(),"u")).get(0).get("status"));
+    }
+    @Test void explicitFutureWindowIsPreserved() {
+        var req=request("u");
+        Date from=new Date((System.currentTimeMillis()/1000+3600)*1000);
+        Date until=new Date(from.getTime()+7200000);
+        req.setValidFrom(from); req.setExpireAt(until);
+        service.create(req);
+        assertEquals(from.getTime(),db.queryForObject("SELECT valid_from FROM el_exam_assignment",java.sql.Timestamp.class).getTime());
+        assertEquals(until.getTime(),db.queryForObject("SELECT expire_at FROM el_exam_assignment",java.sql.Timestamp.class).getTime());
+        assertEquals("UPCOMING",rows(service.paging(query(),"u")).get(0).get("status"));
+    }
     @Test void simultaneousFirstIssuanceCreatesOneNaturalKey() throws Exception {
         ExecutorService pool=Executors.newFixedThreadPool(3); CountDownLatch go=new CountDownLatch(1);
         try {
