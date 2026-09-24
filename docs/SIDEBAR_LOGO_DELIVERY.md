@@ -18,4 +18,12 @@
 
 ## 发布
 
-正式构建通过，CI/CD 发布跟进中；完成后补记应用版本、流水线及线上资源检查。下一步刷新测试站确认侧栏显示。
+- 应用提交 `c98fe7db567ecd439f883c133cbed447c8ba1722` 已推送 main；[运行 35979337448](https://github.com/cqz-cio/Enterprise-Assessment-Question-Bank-System/actions/runs/35979337448) 的 CI 与 CD 均成功，2026-09-24 17:11（北京时间）完成发布。
+- CI 完整类型检查、正式构建与 JAR 静态资源校验通过；123 项后端测试、23 项部署测试通过。运维套件 13 项中 4 项 Windows 专用检查在 Linux runner 跳过，其余通过。
+- 测试站：<https://124.220.2.69:18443>。发布目录 `/opt/enterprise-exam-test/releases/35979337448-1-c98fe7db567e`，发布前备份 `/opt/enterprise-exam-test/backups/ops/20260924-171045-b140d538`。
+- 服务器 `current.jar` 指向本次发布，应用提交及 JAR SHA256 与 CI 产物一致；服务 active/running，自动重启计数为 0，无恢复标记，迁移集合未改变。JAR SHA256：`3a7b1221658766ad56ff4fc48245b53dfafbe22a7a295a2d208bf13fa0ade677`。
+- 公网 HTTPS 首页实际加载 `/assets/index-d86deeb8.js` 与 `/assets/Layout-774fe8fa.js`；布局代码包含本次 SVG 视口和收起居中逻辑。线上 `/assets/tripeer-logo-light-b44722e0.png` 与源码 SHA256 完全一致：`b44722e07b653db0f4742eb43f92c4e22ec80266480cfc25a032dd86807ed7dc`。
+- 只读配置查询确认当前 `backLogo=/brand-logo.png`，会命中新内置图标逻辑。线上复核为公开资源与服务器发布校验；本轮没有登录线上管理账号，实际组件的 10 项显示检查在本地隔离页面完成。
+- 证据：`work/sidebar-logo/latest-workflow.json`、`ci-summary.json`、`deployed-release.json`、`deployed-resources.json`。最终交付文档以 `[skip ci]` 提交，避免重复发布。
+
+本次无已知未解决问题；已打开的页面可能仍使用旧代码，下一步用 Ctrl+F5 刷新测试站，确认侧栏图标。

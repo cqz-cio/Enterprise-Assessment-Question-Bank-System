@@ -43,4 +43,4 @@ final result: passed
 
 ## 侧栏补齐（2026-09-24）
 
-按用户追加的侧栏位置，沿用此前批准的透明品牌图形，保留既有 30px 图标盒与系统标题；SVG 视口仅显示彩色标志。已查看 `work/sidebar-logo/expanded.png`、`collapsed.png` 的实际组件截图：无白底、无裁断、无英文残片，收起时中心对齐。10 项布局/主题/配置状态及首页导航检查通过，无未处理异常或视觉问题。该检查使用真实项目组件的隔离页面，未登录管理账号；线上发布状态见 `docs/SIDEBAR_LOGO_DELIVERY.md`。
+按用户追加的侧栏位置，沿用此前批准的透明品牌图形，保留既有 30px 图标盒与系统标题；SVG 视口仅显示彩色标志。已查看 `work/sidebar-logo/expanded.png`、`collapsed.png` 的实际组件截图：无白底、无裁断、无英文残片，收起时中心对齐。10 项布局/主题/配置状态及首页导航检查通过，无未处理异常或视觉问题。该检查使用真实项目组件的隔离页面，未登录管理账号。CI/CD 运行 35979337448 已成功部署 c98fe7d；公网实际加载的 Layout 代码包含本次视口与居中处理，PNG 与源码哈希一致，当前内置 Logo 配置命中新逻辑。线上校验范围为公开资源及发布状态，未声称完成线上管理页截图验收。证据见 `work/sidebar-logo/deployed-resources.json` 与 `docs/SIDEBAR_LOGO_DELIVERY.md`。
