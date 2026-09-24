@@ -70,8 +70,11 @@ def main():
         ssh = ['ssh', *options, '-p', port, destination]
         execute([*ssh, f'sudo -n /usr/local/sbin/enterprise-exam-test-deploy prepare {release_id}'], 30)
         # Seeded old JAR allows changed-block transfer instead of resending all dependencies.
-        # Byte progress keeps idle detection meaningful with non-TTY output.
-        execute(['rsync', '--info=progress2', '--outbuf=L', '--timeout=60', '--chmod=F600,D700',
+        # Pace changed bytes on the runner/server link: progress can otherwise reach
+        # 100% while SSH still has buffered data, triggering the 60-second idle guard.
+        # Bound the remote process too, since killing local SSH may not close its peer.
+        execute(['rsync', '--info=progress2', '--stats', '--outbuf=L', '--timeout=60',
+                 '--bwlimit=16', '--rsync-path=timeout --kill-after=5s 290s rsync', '--chmod=F600,D700',
                  '-e', shlex.join(['ssh', *options, '-p', port]), str(jar), str(folder / 'release.json'),
                  destination + ':' + remote + '/'], 300)
         # 660 seconds covers backup (180), service operations, readiness and recovery.
