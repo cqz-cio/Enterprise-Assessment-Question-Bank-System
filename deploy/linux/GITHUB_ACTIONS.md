@@ -33,7 +33,7 @@ sudo timeout --kill-after=5s 60s bash ./install-cd.sh /absolute/path/exam-test-g
 安装器要求原测试环境标记 `.exam-test-owned` 和原备份工具已存在。它只安装部署账号、受限 sudo 入口与 root 所有的脚本，不重启服务。部署账号固定为 `exam-deploy`；独立的 `exam-test` 继续运行应用。重新安装会替换这个专用账号的公钥，可用于轮换 CI 密钥。
 
 - `/var/lib/enterprise-exam-deploy/incoming`：部署账号上传 JAR 与清单。
-- runner 和服务器需要 `rsync`。部署入口先将当前 JAR 的副本放进本次上传目录，随后 rsync 只传变化块，最终仍校验整个 JAR 的 SHA256；不复制运行配置或密钥。上传按 16 KiB/s 限速，减少海外链路突发积压；进度百分比包含复用块及缓冲数据，不代表服务器已收齐。保留 60 秒无输出/无 I/O 超时和客户端 300 秒上限，远端 rsync 另由 timeout 在 290 秒后终止（5 秒强杀宽限），防止 SSH 中断留下传输进程。
+- runner 和服务器需要 `rsync`。部署入口先将当前 JAR 的副本放进本次上传目录，随后 rsync 只传变化块，最终仍校验整个 JAR 的 SHA256；不复制运行配置或密钥。上传按 32 KiB/s 限速，并仅对本次上传目录中的旧 JAR 副本使用 `--inplace --backup`，保留已收变化块并保护 JAR 中位置发生移动的旧块；应用运行文件不作为上传目标。进度百分比包含复用块及缓冲数据，不代表服务器已收齐。保留 60 秒无输出/无 I/O 超时，每次远端传输 110 秒后终止（5 秒强杀宽限）、客户端最多等待 125 秒。首次失败后，确认本账号、本次目录的旧 rsync 已退出，再使用已收块重连一次；清理失败则拒绝重连，两次上传与清理总上限 270 秒。最终完整 SHA256 校验通过后才允许部署。
 - `/usr/local/sbin/enterprise-exam-test-deploy`：root 所有，部署账号仅能 sudo 调用此入口。参数经过校验，不能指定其他服务或根目录；上传脚本不会以 root 执行。
 - `authorized_keys` 使用 `restrict`，关闭端口转发、PTY 等能力；账号不加入 docker、sudo 或 exam-test 组。该账号仍有部署本应用代码的权限，必须保护私钥。
 - 若云防火墙限制 SSH 来源，需要让所选 GitHub runner 能连接 SSH 端口。不要为此开放 MySQL/Redis/18082。

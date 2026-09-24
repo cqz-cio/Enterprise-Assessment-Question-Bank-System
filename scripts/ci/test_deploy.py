@@ -240,20 +240,39 @@ class ClientSafetyTest(unittest.TestCase):
         self.assertIn(' prepare ', commands[0][-1])
         self.assertIn('--info=progress2', commands[1])
         self.assertIn('--timeout=60', commands[1])
-        self.assertIn('--bwlimit=16', commands[1])
-        self.assertIn('--rsync-path=timeout --kill-after=5s 290s rsync', commands[1])
+        self.assertIn('--bwlimit=32', commands[1])
+        self.assertIn('--inplace', commands[1])
+        self.assertIn('--backup', commands[1])
+        self.assertIn('--rsync-path=timeout --kill-after=5s 110s rsync', commands[1])
         self.assertTrue(commands[-1][-1].startswith('sudo -n /usr/local/sbin/enterprise-exam-test-deploy '))
 
     def test_upload_timeout_never_activates_release_and_removes_key(self):
-        self.execute.side_effect = [b'prepared', RuntimeError('upload timed out')]
+        self.execute.side_effect = [b'prepared', RuntimeError('upload timed out'), b'stopped', RuntimeError('upload timed out')]
         with self.assertRaisesRegex(RuntimeError, 'upload timed out'):
             client.main()
         commands = [call.args[0] for call in self.execute.call_args_list]
-        self.assertEqual(2, len(commands))
+        self.assertEqual(4, len(commands))
+        self.assertIn('timeout --kill-after=2s 5s python3', commands[2][-1])
+        self.assertEqual(commands[1], commands[3])
         self.assertIn(' prepare ', commands[0][-1])
         self.assertEqual('rsync', commands[1][0])
         connection = shlex.split(commands[1][commands[1].index('-e') + 1])
         self.assertFalse(Path(connection[connection.index('-i') + 1]).exists())
+
+    def test_upload_resumes_only_after_previous_transfer_stops(self):
+        self.execute.side_effect = [b'prepared', RuntimeError('stalled'), b'stopped', b'uploaded', b'deployed']
+        client.main()
+        commands = [call.args[0] for call in self.execute.call_args_list]
+        self.assertEqual(5, len(commands))
+        self.assertEqual(commands[1], commands[3])
+        self.assertIn('timeout --kill-after=2s 5s python3', commands[2][-1])
+        self.assertTrue(commands[-1][-1].startswith('sudo -n /usr/local/sbin/enterprise-exam-test-deploy '))
+
+    def test_cleanup_failure_blocks_retry_and_deployment(self):
+        self.execute.side_effect = [b'prepared', RuntimeError('stalled'), RuntimeError('cleanup failed')]
+        with self.assertRaisesRegex(RuntimeError, 'cleanup failed'):
+            client.main()
+        self.assertEqual(3, self.execute.call_count)
 
     def test_corrupt_artifact_is_not_uploaded(self):
         self.jar.write_bytes(b'corrupt')

@@ -26,6 +26,46 @@ def execute(command, seconds):
         raise
 
 
+def stop_upload(ssh, remote):
+    # Only this account's rsync processes for this run's private staging directory.
+    # The application JAR lives elsewhere and is never an upload destination.
+    cleanup = """
+import os, signal, sys, time
+from pathlib import Path
+target = sys.argv[1].encode() + b'/'
+def matches(pid):
+    p = Path('/proc') / str(pid)
+    try:
+        if p.stat().st_uid != os.getuid(): return False
+        args = (p / 'cmdline').read_bytes().split(bytes([0]))
+        return (p / 'comm').read_text().strip() == 'rsync' and b'--server' in args and target in args
+    except (FileNotFoundError, ProcessLookupError):
+        return False
+pids = [int(p.name) for p in Path('/proc').iterdir() if p.name.isdigit() and matches(int(p.name))]
+for sig in (signal.SIGTERM, signal.SIGKILL):
+    for pid in pids:
+        if matches(pid):
+            try: os.kill(pid, sig)
+            except ProcessLookupError: pass
+    time.sleep(0.5)
+if any(matches(pid) for pid in pids):
+    raise SystemExit('Previous upload has not stopped; refusing concurrent retry')
+print('Previous upload stopped; private partial JAR retained.')
+"""
+    execute([*ssh, 'timeout --kill-after=2s 5s python3 -c ' + shlex.quote(cleanup) + ' ' + shlex.quote(remote)], 20)
+
+
+def upload(command, ssh, remote):
+    try:
+        execute(command, 125)
+    except RuntimeError:
+        stop_upload(ssh, remote)
+        print('Resuming remaining changed blocks once after closing the stalled transfer.', flush=True)
+        # The first attempt updated only the prepared private copy. Reusing those
+        # blocks keeps reconnects short; the root helper still checks the full SHA256.
+        execute(command, 125)
+
+
 def main():
     sha = os.environ['GITHUB_SHA']
     run_id, attempt = os.environ['GITHUB_RUN_ID'], os.environ['GITHUB_RUN_ATTEMPT']
@@ -69,14 +109,14 @@ def main():
                    '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3']
         ssh = ['ssh', *options, '-p', port, destination]
         execute([*ssh, f'sudo -n /usr/local/sbin/enterprise-exam-test-deploy prepare {release_id}'], 30)
-        # Seeded old JAR allows changed-block transfer instead of resending all dependencies.
-        # Pace changed bytes on the runner/server link: progress can otherwise reach
-        # 100% while SSH still has buffered data, triggering the 60-second idle guard.
-        # Bound the remote process too, since killing local SSH may not close its peer.
-        execute(['rsync', '--info=progress2', '--stats', '--outbuf=L', '--timeout=60',
-                 '--bwlimit=16', '--rsync-path=timeout --kill-after=5s 290s rsync', '--chmod=F600,D700',
-                 '-e', shlex.join(['ssh', *options, '-p', port]), str(jar), str(folder / 'release.json'),
-                 destination + ':' + remote + '/'], 300)
+        # The private seeded copy may be partially updated; it is never activated
+        # until full checksum verification. A backup basis preserves blocks shifted
+        # within the JAR; each remote transfer has its own deadline.
+        command = ['rsync', '--inplace', '--backup', '--info=progress2', '--stats', '--outbuf=L', '--timeout=60',
+                   '--bwlimit=32', '--rsync-path=timeout --kill-after=5s 110s rsync', '--chmod=F600,D700',
+                   '-e', shlex.join(['ssh', *options, '-p', port]), str(jar), str(folder / 'release.json'),
+                   destination + ':' + remote + '/']
+        upload(command, ssh, remote)
         # 660 seconds covers backup (180), service operations, readiness and recovery.
         result = execute([*ssh, f'sudo -n /usr/local/sbin/enterprise-exam-test-deploy {release_id} {sha} {digest}'], 660)
         print(result.decode('utf-8', errors='replace'))
