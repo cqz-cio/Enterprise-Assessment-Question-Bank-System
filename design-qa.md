@@ -40,3 +40,7 @@ final result: passed
 ## 线上复核（2026-09-24）
 
 [CI/CD 成功运行](https://github.com/cqz-cio/Enterprise-Assessment-Question-Bank-System/actions/runs/35967669039) 发布 `50d43bd` 后，在相同桌面和窄屏视口复测；`work/logo-transparency/deployed/browser-report.json` 的 6 项检查全部通过。已实际查看 `deployed/login-focus.png` 和 `deployed/loading-focus.png`，两处透明背景、字色、尺寸和边缘与本地验收一致，无新增视觉差异。线上 PNG 哈希与源码文件完全一致。
+
+## 侧栏补齐（2026-09-24）
+
+按用户追加的侧栏位置，沿用此前批准的透明品牌图形，保留既有 30px 图标盒与系统标题；SVG 视口仅显示彩色标志。已查看 `work/sidebar-logo/expanded.png`、`collapsed.png` 的实际组件截图：无白底、无裁断、无英文残片，收起时中心对齐。10 项布局/主题/配置状态及首页导航检查通过，无未处理异常或视觉问题。该检查使用真实项目组件的隔离页面，未登录管理账号；线上发布状态见 `docs/SIDEBAR_LOGO_DELIVERY.md`。

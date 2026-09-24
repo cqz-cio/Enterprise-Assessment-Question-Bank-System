@@ -2,6 +2,7 @@
 import { ref, watch, computed, onMounted, unref } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
+import tripeerLogo from '@/assets/imgs/tripeer-logo-light.png'
 
 const { getPrefixCls } = useDesign()
 
@@ -16,6 +17,11 @@ const layout = computed(() => appStore.getLayout)
 const collapse = computed(() => appStore.getCollapse)
 
 const siteInfo = computed(() => appStore.getSiteInfo)
+
+const isBuiltinLogo = computed(() => {
+  const configuredLogo = siteInfo.value.backLogo
+  return !configuredLogo || ['/brand-logo.png', '/logo.png'].includes(configuredLogo)
+})
 
 onMounted(() => {
   if (unref(collapse)) show.value = false
@@ -60,12 +66,26 @@ watch(
       :class="[
         prefixCls,
         layout !== 'classic' ? `${prefixCls}__Top` : '',
-        'flex !h-[var(--logo-height)] items-center cursor-pointer pl-8px relative decoration-none overflow-hidden'
+        'flex !h-[var(--logo-height)] items-center cursor-pointer relative decoration-none overflow-hidden',
+        layout === 'classic' && collapse ? 'justify-center' : 'pl-8px'
       ]"
+      :aria-label="siteInfo.siteName || '首页'"
       to="/"
     >
+      <!-- Show the approved transparent mark at icon size, without the tiny wordmark. -->
+      <svg
+        v-if="isBuiltinLogo"
+        viewBox="110 68 565 580"
+        aria-hidden="true"
+        focusable="false"
+        class="overflow-hidden shrink-0 w-[calc(var(--logo-height)-20px)] h-[calc(var(--logo-height)-20px)]"
+      >
+        <image :href="tripeerLogo" width="2154" height="730" />
+      </svg>
       <img
+        v-else
         :src="siteInfo.backLogo"
+        alt=""
         class="object-contain shrink-0 w-[calc(var(--logo-height)-20px)] h-[calc(var(--logo-height)-20px)]"
       />
       <div
