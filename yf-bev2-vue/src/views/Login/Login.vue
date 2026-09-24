@@ -7,6 +7,7 @@ import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { computed, ref } from 'vue'
 import { ElScrollbar } from 'element-plus'
+import tripeerLoginLogo from '@/assets/imgs/tripeer-logo-light.png'
 
 const { getPrefixCls } = useDesign()
 
@@ -19,6 +20,14 @@ const { t } = useI18n()
 const isLogin = ref(true)
 
 const siteInfo = computed(() => appStore.getSiteInfo)
+
+const loginLogo = computed(() => {
+  const configuredLogo = siteInfo.value.loginLogo
+  // Use the dark-surface variant for the bundled brand, preserving custom uploads.
+  return !configuredLogo || ['/brand-logo.png', '/logo.png'].includes(configuredLogo)
+    ? tripeerLoginLogo
+    : configuredLogo
+})
 
 const toRegister = () => {
   isLogin.value = false
@@ -40,7 +49,7 @@ const toLogin = () => {
           :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px lt-xl:hidden`"
         >
           <div :class="`${prefixCls}__brand`" class="flex relative text-white">
-            <img :src="siteInfo.loginLogo" alt="" />
+            <img :src="loginLogo" alt="" />
             <span>{{ siteInfo.siteName }}</span>
           </div>
           <div class="flex justify-center items-center h-[calc(100%-60px)]">
@@ -62,7 +71,7 @@ const toLogin = () => {
             class="flex justify-between items-center text-white at-2xl:justify-end at-xl:justify-end"
           >
             <div :class="`${prefixCls}__brand`" class="flex at-2xl:hidden at-xl:hidden">
-              <img :src="siteInfo.loginLogo" alt="" />
+              <img :src="loginLogo" alt="" />
               <span>{{ siteInfo.siteName }}</span>
             </div>
 
