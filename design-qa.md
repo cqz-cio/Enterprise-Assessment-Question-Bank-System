@@ -33,6 +33,10 @@ final result: passed
 - [x] 保留页面背景、尺寸、文案及自定义 Logo。
 - [x] 正式前端构建、完整类型检查、组件 Lint、8 项浏览器检查。
 - [x] 检查合并对照图及局部显示质量。
-- [ ] 发布后在测试服务器复核；本次未部署。
+- [x] 测试站 CI/CD 发布后完成 6 项真实 Chrome 检查，查看两处局部截图并核对线上 PNG 与源码 SHA256。
 
 无未解决的 P0/P1/P2 或需单列的 P3 视觉问题。原始高分辨率图形没有逐像素等价声明，验收对象为页面中的实际显示效果。
+
+## 线上复核（2026-09-24）
+
+[CI/CD 成功运行](https://github.com/cqz-cio/Enterprise-Assessment-Question-Bank-System/actions/runs/35967669039) 发布 `50d43bd` 后，在相同桌面和窄屏视口复测；`work/logo-transparency/deployed/browser-report.json` 的 6 项检查全部通过。已实际查看 `deployed/login-focus.png` 和 `deployed/loading-focus.png`，两处透明背景、字色、尺寸和边缘与本地验收一致，无新增视觉差异。线上 PNG 哈希与源码文件完全一致。

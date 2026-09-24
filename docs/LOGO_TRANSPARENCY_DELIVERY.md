@@ -19,6 +19,8 @@
 | `docs/08-decision-log.md` | D-040 视觉决策 |
 | `docs/05-development-plan.md`、`docs/AI_HANDOFF.md` | 实施结果与交接 |
 | `design-qa.md` | 视觉对照验收 |
+| `scripts/ci/deploy.py`、`scripts/ci/test_deploy.py` | 限时、保留部分数据的上传与一次续传，失败保护回归 |
+| `deploy/linux/GITHUB_ACTIONS.md` | 同步实际传输方式和时限 |
 | 本文档 | 改动、验证和发布状态 |
 
 ## 接口、数据库与业务
@@ -49,8 +51,26 @@
 
 > Make a second dark-surface version of this supplied transparent TRIPEER logo. Change ONLY the gray TRIPEER wordmark letters on the right to uniform solid off-white #F4F6FB. Keep every pixel of the blue/orange/gray symbol on the left, the exact same shapes, letter geometry, margins, positions, width, height and canvas aspect ratio of the supplied logo. Keep genuine PNG alpha transparency in all empty space. No white rectangle. No shadow, glow, outline, extrusion or texture. The lettering must have flat #F4F6FB fill with clean antialiased edges. Preserve the original source canvas 2155 x 730 ratio and padding. The output is only one logo asset, not a mockup or preview board.
 
-## 发布状态与下一步
+## 发布结果（2026-09-24）
 
-本轮为本地代码、正式前端构建及浏览器验收；未提交、推送、部署或重启服务器。后端 release profile 会从 `dist-pro` 打包前端，发布时应使用现有发布流水线重建。已保留原有未跟踪的 `AGENTS.md`、`patches/`。
+用户明确要求生效、推送代码，并在 CI 成功后 CD 发布。已推送 main，最终 [CI 与 CD 全部成功](https://github.com/cqz-cio/Enterprise-Assessment-Question-Bank-System/actions/runs/35967669039)，线上两处 Logo 已生效。
 
-下一步：发布这批 Logo 修改到测试站后检查两个入口；无需数据库迁移。本轮未重跑业务全流程，视觉修改没有触及其逻辑。
+- Logo 实施提交：`a3e86f82879fe29d5497cdfa8ad9d96b7b84466f`；最终部署提交（含传输修复）：`50d43bd8d07641745fc0eba37191ebab03302c63`。
+- 测试入口：[企业人才考核系统](https://124.220.2.69:18443/#/login)。
+- 发布编号：`35967669039-1-50d43bd8d076`。
+- JAR SHA256：`9162b6c545287fb8a65a47c609b3f8e992df46ca3e487b95622af527dfbab4b7`。
+- 发布前已验证备份：`/opt/enterprise-exam-test/backups/ops/20260924-150834-f7fe4c70`；旧 JAR 保留，迁移集合一致。
+- 服务 active/running、NRestarts=0，无 recovery 标记或本次遗留传输进程。
+- CI：123 项后端测试、23 项部署测试全部通过；13 项运维测试中 4 项 Windows 专项按平台跳过，其余通过；全量前端类型、正式构建及 JAR 静态资源校验通过。
+- 公网 TLS、首页和验证码依赖健康检查通过。Chrome 6 项线上检查通过：1920×911 登录/加载页，390×844 登录/加载/深色模式，320×844 登录；无横向溢出或未处理异常。两张线上 PNG 的 SHA256 与提交素材完全一致，已查看真实截图确认无白框及白边。
+- 线上截图和报告：`work/logo-transparency/deployed/`；成功流水线、服务器版本及备份记录：`latest-workflow.json`、`deployed-release.json`、`cd-success.log`（均在 `work/logo-transparency/`）。
+
+## 发布中发现的传输问题
+
+最初的 CI 均通过，但跨境 SSH 上传多次停滞，进度显示 100% 时服务器仍未收齐；这些失败均发生在切换前，旧服务持续运行。单纯降低速率仍未解决，因此最终采用 32 KiB/s 限速、对本次私有上传副本使用 `--inplace --backup` 保留已收块，并在确认旧传输进程退出后最多续传一次。每次远端 110 秒、客户端 125 秒，清理 20 秒，两次上传及清理最多 270 秒，保留 60 秒无进展保护和完整 SHA256 校验。
+
+新增上传失败不切换、清理失败不重连、停止旧传输后才能重连的回归测试；在服务器部署账号下用一次性随机文件实际验证了中断续传及移动块的完整 SHA256，测试目录已自动清理。最终成功运行的上传一次完成，未触发自动续传。早期遗留 rsync 已按账号和本次目录核对后清理，没有停止其他进程。
+
+交付记录以仅文档 `[skip ci]` 提交推送，避免为记录结果再次重启应用。无接口、数据库迁移或依赖变化，保留原有未跟踪 `AGENTS.md`、`patches/`。
+
+下一步：刷新测试站确认两处显示；本轮未重复完整业务流程或容量测试，未修改业务逻辑。
