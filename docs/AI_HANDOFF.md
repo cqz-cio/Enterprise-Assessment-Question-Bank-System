@@ -321,4 +321,6 @@ Word 批量导入已实现并启动最新服务：规范 DOCX 模板、预校验
 - 用户要求全面检查并直接优化，见 D-042。统一候选人入口、favicon、设置预览与旧默认路径，保留已批准的登录/首屏效果及自定义 Logo。
 - 导航标题仅在经典侧栏收起时隐藏，顶部布局不再受旧收起状态影响；候选人页深色主题使用对应透明字标与现有主题色。
 - 共享资源和识别逻辑集中到 branding.ts；SVG 复用现有像素和视口。无业务接口、迁移或依赖变更，AGENTS.md、patches/ 保留。
-- 15 项组件、12 项正式页面、lint、类型与正式构建检查通过；CI/CD 最终结果见 FRONTEND_BRAND_AUDIT_DELIVERY.md。
+- 15 项组件、12 项正式页面、lint、类型与正式构建检查通过。已推送并经 CI/CD 运行 35982124004 部署 baf7429；123 后端与 23 部署测试通过。
+- 10 项线上 Chrome 页面检查和 4 个品牌资源与 Git 版本哈希核对通过，current.jar 与 CI 产物一致，服务 active/running、0 自动重启，无恢复标记。备份 `/opt/enterprise-exam-test/backups/ops/20260924-173914-56d4cdf5`。
+- 完整证据及范围限制见 FRONTEND_BRAND_AUDIT_DELIVERY.md，视觉报告入口 `work/brand-audit/report.html`。下一步刷新测试站确认；最终文档用 `[skip ci]` 提交。
