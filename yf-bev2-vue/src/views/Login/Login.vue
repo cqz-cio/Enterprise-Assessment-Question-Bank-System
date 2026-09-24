@@ -7,7 +7,7 @@ import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { computed, ref } from 'vue'
 import { ElScrollbar } from 'element-plus'
-import tripeerLoginLogo from '@/assets/imgs/tripeer-logo-light.png'
+import { BRAND_LOGO_LIGHT, isBuiltinBrandLogo } from '@/utils/branding'
 
 const { getPrefixCls } = useDesign()
 
@@ -24,9 +24,7 @@ const siteInfo = computed(() => appStore.getSiteInfo)
 const loginLogo = computed(() => {
   const configuredLogo = siteInfo.value.loginLogo
   // Use the dark-surface variant for the bundled brand, preserving custom uploads.
-  return !configuredLogo || ['/brand-logo.png', '/logo.png'].includes(configuredLogo)
-    ? tripeerLoginLogo
-    : configuredLogo
+  return isBuiltinBrandLogo(configuredLogo) ? BRAND_LOGO_LIGHT : configuredLogo
 })
 
 const toRegister = () => {

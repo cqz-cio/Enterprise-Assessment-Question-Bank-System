@@ -14,7 +14,7 @@
       <Plus />
     </el-icon>
     <template #file="{ file }">
-      <div style="background: #b3b3b3">
+      <div :style="{ background: previewBackground }">
         <img
           class="el-upload-list__item-thumbnail"
           v-if="file && file.url"
@@ -66,6 +66,10 @@ const props = defineProps({
   modelValue: {
     type: String,
     default: ''
+  },
+  previewBackground: {
+    type: String,
+    default: '#b3b3b3'
   }
 })
 

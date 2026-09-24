@@ -2,7 +2,8 @@
   <div class="candidate-page">
     <div class="entry-card">
       <header class="brand">
-        <img :src="tripeerLogo" alt="TRIPEER" class="brand-logo" />
+        <img :src="BRAND_LOGO" alt="TRIPEER" class="brand-logo brand-logo--light" />
+        <img :src="BRAND_LOGO_LIGHT" alt="TRIPEER" class="brand-logo brand-logo--dark" />
         <div class="company-name">宁波全品轩国际贸易有限公司</div>
         <div class="system-name">企业人才测评中心</div>
       </header>
@@ -78,7 +79,7 @@ import {
 } from '@/api/modules/exam/assignment'
 import { useUserStore } from '@/store/modules/user'
 import { useStorage } from '@/hooks/web/useStorage'
-import tripeerLogo from '@/assets/imgs/tripeer-logo.png'
+import { BRAND_LOGO, BRAND_LOGO_LIGHT } from '@/utils/branding'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -184,8 +185,36 @@ onMounted(async () => {
 .brand-logo {
   display: block;
   width: 176px;
+  max-width: 100%;
   height: auto;
   margin-bottom: 15px;
+}
+.brand-logo--dark {
+  display: none;
+}
+.dark .brand-logo--light {
+  display: none;
+}
+.dark .brand-logo--dark {
+  display: block;
+}
+.dark .candidate-page {
+  background: var(--el-bg-color-page);
+}
+.dark .entry-card {
+  background: var(--el-bg-color-overlay);
+  border-color: var(--el-border-color-light);
+}
+.dark .brand {
+  border-color: var(--el-border-color-light);
+}
+.dark .company-name,
+.dark .detail strong {
+  color: var(--el-text-color-primary);
+}
+.dark .detail {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-regular);
 }
 .company-name {
   color: #303640;
@@ -202,6 +231,7 @@ onMounted(async () => {
   letter-spacing: 0.14em;
 }
 h1 {
+  color: var(--el-text-color-primary);
   font-size: 28px;
   margin: 0 0 10px;
 }

@@ -5,7 +5,7 @@
     </el-form-item>
 
     <el-form-item label="登录页图标" prop="loginLogo">
-      <file-uploader v-model="form.loginLogo" />
+      <file-uploader v-model="form.loginLogo" preview-background="#f5f7fa" />
     </el-form-item>
 
     <el-form-item label="登录页背景" prop="loginBg">
@@ -13,7 +13,7 @@
     </el-form-item>
 
     <el-form-item label="后台图标" prop="backLogo">
-      <file-uploader v-model="form.backLogo" />
+      <file-uploader v-model="form.backLogo" preview-background="#f5f7fa" />
     </el-form-item>
 
     <el-form-item label="底部信息" prop="copyRight">
