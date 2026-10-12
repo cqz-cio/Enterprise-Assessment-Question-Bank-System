@@ -95,9 +95,44 @@ Docker 因失效的临时通信端点无法启动，保留旧运行目录后恢�
 
 ## 当前状态与下一步
 
-本次未提交、推送或发布线上；V026 只在隔离测试/演示库执行，未迁移本地业务库。既有 AGENTS.md、patches/ 未修改。用户可直接打开 `http://127.0.0.1:18090/#/login` 复核，餐具部主管为 `review_canju`，家具部主管为 `review_jiaju`；沿用已确认的演示密码，凭据仅保存在 `.local/`。推荐下一步由用户在该站切换两个主管及员工账号确认日常操作，之后再安排目标环境部署。
+2026-10-12 已按用户授权推送 main 并部署原服务器，线上版本和 V026 见下方发布记录。本地业务库未迁移，既有 AGENTS.md、patches/ 未修改。此前的 `http://127.0.0.1:18090/#/login` 演示环境及凭据仍保留在 `.local/`；本次发布代码不复制演示账号到服务器。推荐下一步由线上管理员按实际部门创建主管账号并绑定“部门主管”角色，再由 HR/主管使用虚构名单确认日常操作。
 
-首轮使用 --skip-load，本轮也未重跑容量、备份、移动端或线上验收；本地通过不代替目标服务器验收。历史缺失题面/答卷和生产运维事项沿用原限制。
+2026-10-10 首轮使用 --skip-load，当日本地复验也未重跑容量、备份、移动端或线上验收；本地通过不代替目标服务器验收。历史缺失题面/答卷和生产运维事项沿用原限制。
+
+## 线上发布（2026-10-12）
+
+部门主管、部门隔离和两处验收修复已上线 [原测试站](https://124.220.2.69:18443/#/login)。功能提交 `6786b75aad1e69ffe6ca9997c522d65d0baf849f` 与部署传输调整提交 `58440945f05d80d52e17d841e151d04abbf64ba8` 已推送 main，实际运行应用版本为后者。[CI/CD 运行 38195403017](https://github.com/cqz-cio/Enterprise-Assessment-Question-Bank-System/actions/runs/38195403017) 最终第 2 次尝试的构建、部署均成功。
+
+CI 核验 135 项后端测试全部通过，0 失败/错误/跳过；23 项部署安全测试通过。运维套件 13 项中 4 项 Windows 专用检查在 Linux runner 跳过，其余通过。全量类型检查、正式前端构建、release verify 和 140 个包内静态文件一致性门禁通过。
+
+| 发布核验 | 结果 |
+| --- | --- |
+| 当前运行目录 | `/opt/enterprise-exam-test/releases/38195403017-2-58440945f05d` |
+| CI/本机接续/线上 JAR | SHA256 均为 `e6734cffe5696d74a9441ec16df40b9babb2997a4377135f20e92cce4ee18030` |
+| 数据库 | Flyway V026 成功；DEPT_MANAGER 为部门主管、data_scope=2、role_level=90，未创建默认账号 |
+| 权限 | 审核、发放、成绩/导出、评分和终审权限存在；未授予用户状态/维护、角色授权或候选人导入权限 |
+| 公网 | HTTPS、首页及 6 个入口/答题资源与 JAR 一致，验证码 PNG 正常；3 个受保护接口匿名访问被拒绝 |
+| 服务 | active/running、NRestarts=0，无恢复标记，原 ERP 入口正常 |
+| 原数据 | 原 8 张核心业务表校验值不变；其他已记录业务行数、3 个附件和原密钥/运行配置摘要一致；线上保留原 5 个账号 |
+| V025 前置备份 | `/opt/enterprise-exam-test/backups/ops/20261012-103631-17907844`，实际为 V026 升级前的 V025 备份 |
+| 最后接续发布备份 | `/opt/enterprise-exam-test/backups/ops/20261012-103938-ab1c2161`，已为 V026，不能当成升级前备份 |
+
+首轮 [运行 38194803528](https://github.com/cqz-cio/Enterprise-Assessment-Question-Bank-System/actions/runs/38194803528) 的 CI 通过，上传在旧 32 KiB/s 限速及单次截止时间下失败，未切换服务。将限速提高为 128 KiB/s 并同步安全断言和部署说明后，新运行第一次尝试仍因跨境链路波动超时，末段实际速度约 40 KiB/s。两次失败均未改运行包或迁移数据库。
+
+恢复时只使用最终运行已通过 CI 的原始 artifact：GitHub ZIP 摘要 `a23702f506636f42746bcf4cf5f77c3060f78fdd9e32aa201372e7e739969e47` 与下载一致，Git SHA、clean 状态和 JAR 摘要再次校验。确认没有残留 rsync 后，以现有部署账号从本机完整补齐私有暂存目录，服务器全文件摘要通过；调用原 root 所有受保护入口，保留备份、迁移比较、文件锁及启动健康检查。第一次受控发布后，仅重跑失败的 CD，复用同一 CI 包并以新运行包为差分基础，自动部署最终通过。没有上传本地 dirty 构建或跳过发布门禁。
+
+本次线上验证为发布、只读权限配置和匿名保护检查，未重新执行登录后的完整员工/主管浏览器闭环；该业务闭环及双向部门隔离依据 2026-10-10 本地真实测试和最终相同源码的 CI。跨境大包传输仍可能超时，本轮保留现有有限重试和失败保护；后续可单独完善可靠的 artifact 获取/续传流程。未执行服务器容量、移动端或备份恢复演练。
+
+本地发布证据（Git 忽略目录）：
+
+- `work/codex-logs/department-deploy-ci-summary-final.json`：最终源码 CI 测试数量及跳过项。
+- `work/codex-logs/department-deploy-workflow-38195403017.json`：最终工作流、任务及提交身份。
+- `work/codex-logs/department-deploy-recovery-artifact.json`、`department-deploy-upload.json`：原 artifact 身份、完整上传与服务器摘要。
+- `work/codex-logs/department-deploy-local-activation.json`：第一次受保护激活、升级前备份和退出状态。
+- `work/codex-logs/department-deploy-before.json`、`department-deploy-after-first.json`、`department-deploy-after.json`：配置/密钥、业务行数、附件及服务前后对照。
+- `work/codex-logs/department-deploy-live-verification.json`：最后公网资源、V026、权限及匿名拒绝核验。
+
+最终发布记录以 `[skip ci]` 文档提交保存，避免相同应用重复停服。原有 AGENTS.md、patches/ 继续保持未跟踪。
 
 ## 修改文件
 
@@ -118,6 +153,9 @@ Docker 因失效的临时通信端点无法启动，保留旧运行目录后恢�
 - `scripts/qa/department_manager.py`
 - `scripts/qa/department_manager_flow.py`
 - `scripts/qa/run_acceptance.py`
+- `scripts/ci/deploy.py`
+- `scripts/ci/test_deploy.py`
+- `deploy/linux/GITHUB_ACTIONS.md`
 - `yf-bev2-api/src/main/java/com/yf/modules/exam/assignment/importing/CandidateImportService.java`
 - `yf-bev2-api/src/main/java/com/yf/modules/exam/assignment/mapper/ExamAssignmentMapper.java`
 - `yf-bev2-api/src/main/java/com/yf/modules/exam/assignment/service/EmployeeAssignmentService.java`
