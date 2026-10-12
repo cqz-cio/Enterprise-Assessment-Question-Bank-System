@@ -240,7 +240,7 @@ class ClientSafetyTest(unittest.TestCase):
         self.assertIn(' prepare ', commands[0][-1])
         self.assertIn('--info=progress2', commands[1])
         self.assertIn('--timeout=60', commands[1])
-        self.assertIn('--bwlimit=32', commands[1])
+        self.assertIn('--bwlimit=128', commands[1])
         self.assertIn('--inplace', commands[1])
         self.assertIn('--backup', commands[1])
         self.assertIn('--rsync-path=timeout --kill-after=5s 110s rsync', commands[1])

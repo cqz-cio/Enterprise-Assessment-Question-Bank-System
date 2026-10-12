@@ -113,7 +113,7 @@ def main():
         # until full checksum verification. A backup basis preserves blocks shifted
         # within the JAR; each remote transfer has its own deadline.
         command = ['rsync', '--inplace', '--backup', '--info=progress2', '--stats', '--outbuf=L', '--timeout=60',
-                   '--bwlimit=32', '--rsync-path=timeout --kill-after=5s 110s rsync', '--chmod=F600,D700',
+                   '--bwlimit=128', '--rsync-path=timeout --kill-after=5s 110s rsync', '--chmod=F600,D700',
                    '-e', shlex.join(['ssh', *options, '-p', port]), str(jar), str(folder / 'release.json'),
                    destination + ':' + remote + '/']
         upload(command, ssh, remote)
