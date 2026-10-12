@@ -18,6 +18,9 @@ import java.util.List;
 @Schema(name = "用户搜索请求类", description = "用户搜索请求类")
 public class SysUserQueryReqDTO implements Serializable {
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private com.yf.system.modules.user.DepartmentScope.Scope scope;
+
     private static final long serialVersionUID = 1L;
 
 

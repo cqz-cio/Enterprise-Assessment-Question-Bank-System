@@ -234,12 +234,57 @@ async function password(browser) {
   });
   await page.context().close();
 }
+async function manager(browser) {
+  const page=await pageFor(browser,'department-manager');const f=fixture();
+  await record('UI-DM-01 主管登录并通过本部门员工注册审核',async()=>{
+    await login(page,f.managers[0]);
+    await page.goto(base+'/#/admin/org/user',{waitUntil:'networkidle'});
+    await page.getByPlaceholder('姓名/账号').fill(f.managerUi.employee.userName);
+    await page.getByRole('button',{name:'搜索',exact:true}).click();
+    const row=page.locator('.el-table__body-wrapper .el-table__row').filter({hasText:f.managerUi.employee.userName});
+    await row.getByText('待审核',{exact:true}).waitFor();
+    await row.locator('.el-checkbox').click();
+    await page.getByRole('button',{name:'批量操作'}).hover();
+    await page.getByRole('menuitem',{name:'审核通过',exact:true}).waitFor();
+    assert(await page.getByRole('menuitem',{name:'审核驳回',exact:true}).isVisible(),'Manager cannot reject registrations');
+    assert(await page.getByRole('menuitem',{name:'启用',exact:true}).count()===0,'Manager sees unauthorized enable action');
+    assert(await page.getByRole('menuitem',{name:'禁用',exact:true}).count()===0,'Manager sees unauthorized disable action');
+    await page.getByRole('menuitem',{name:'审核通过',exact:true}).click();
+    const response=page.waitForResponse(r=>r.url().endsWith('/registration/audit-batch'));
+    await page.locator('.el-message-box').getByRole('button',{name:'确认',exact:true}).click();
+    assert((await (await response).json()).code===0,'Department audit failed');
+    await row.getByText('正常',{exact:true}).waitFor();
+    assert(await page.getByRole('button',{name:'添加',exact:true}).count()===0,'Manager can create arbitrary users');
+    await snapshot(page,'department-manager-employee-audit');
+  });
+  await record('UI-DM-02 主管查看本部门已完成阅卷和成绩',async()=>{
+    await page.goto(base+'/#/admin/exam/grading?paperId='+f.managerUi.paper,{waitUntil:'networkidle'});
+    await page.getByText('考生作答',{exact:true}).waitFor();
+    const comment=page.getByPlaceholder('说明得分依据或需要改进的地方');
+    assert(await comment.inputValue()==='QA主管阅卷','Manager grading result unavailable');
+    assert(await comment.isDisabled(),'Completed grading should be read-only');
+    await snapshot(page,'department-manager-grading');
+    await page.goto(base+'/#/admin/exam/results',{waitUntil:'networkidle'});
+    await page.getByPlaceholder('输入考核批次').fill(f.managerUi.batch);
+    const filtered=page.waitForResponse(r=>r.url().endsWith('/api/exam/results/paging'));
+    await page.getByRole('button',{name:'查询',exact:true}).click();
+    assert((await (await filtered).json()).data.total===1,'Unexpected filtered department result count');
+    await page.waitForLoadState('networkidle');
+    await page.locator('.results-table .el-table__row').first().waitFor();
+    assert(await page.locator('.results-table .el-table__row').count()===1,'Unexpected department result count');
+    await page.getByRole('button',{name:'查看',exact:true}).first().click();
+    await page.locator('.el-dialog .detail-grid span').first().waitFor();
+    assert((await page.locator('.el-dialog').innerText()).includes('QA虚构pending0'),'Wrong manager result detail');
+    await snapshot(page,'department-manager-result');
+  });
+  await page.context().close();
+}
 (async()=>{
   let browser;
   try {
     browser=await chromium.launch({headless:true,channel:process.env.QA_BROWSER_CHANNEL || 'chrome'});
     const action=process.argv[2]||'all';
-    for(const [name,fn] of Object.entries({candidate,employee,grading,hr,password}))if(action==='all'||action.split(',').includes(name))await fn(browser);
+    for(const [name,fn] of Object.entries({candidate,employee,grading,hr,password,manager}))if(action==='all'||action.split(',').includes(name))await fn(browser);
     assert(errors.length===0,'Unhandled browser errors: '+JSON.stringify(errors));
     console.log('Browser checks complete:',results.length);
   }catch(error){console.error(String(error));process.exitCode=1;}

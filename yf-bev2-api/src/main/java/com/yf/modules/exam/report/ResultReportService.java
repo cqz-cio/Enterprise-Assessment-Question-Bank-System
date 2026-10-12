@@ -1,7 +1,7 @@
 package com.yf.modules.exam.report;
 
 import com.yf.base.api.exception.ServiceException;
-import com.yf.system.modules.user.UserUtils;
+import com.yf.system.modules.user.DepartmentScope;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -14,6 +14,7 @@ import java.util.*;
 public class ResultReportService {
     public static final int EXPORT_LIMIT=10000;
     private final JdbcTemplate db;
+    private final DepartmentScope scope;
     private static final String FINAL="(p.grading_state IN ('NOT_REQUIRED','GRADED') AND p.passed IS NOT NULL)";
     private static final String JOINS=" FROM el_paper p INNER JOIN el_exam_assignment a ON a.id=p.assignment_id AND a.paper_id=p.id AND a.user_id=p.user_id AND a.exam_id=p.exam_id "
             +"LEFT JOIN el_sys_user u ON u.id=p.user_id LEFT JOIN el_exam e ON e.id=p.exam_id LEFT JOIN el_position pos ON pos.id=a.position_id "
@@ -36,21 +37,7 @@ public class ResultReportService {
         if (q.getScoreMin()!=null&&q.getScoreMax()!=null&&q.getScoreMin().compareTo(q.getScoreMax())>0) throw error("最低分不能大于最高分");
         if (q.getSubmittedFrom()!=null&&q.getSubmittedTo()!=null&&q.getSubmittedFrom().after(q.getSubmittedTo())) throw error("交卷开始时间不能晚于结束时间");
         Filter f=new Filter();
-        var user=UserUtils.getUser(false);
-        if (user==null||!has(user.getId())) throw error("无法确定当前用户的数据权限");
-        // A login session can outlive a department or role change. Resolve current scope in this transaction.
-        var scopes=db.queryForList("SELECT u.dept_code AS deptCode,MAX(r.data_scope) AS dataScope FROM el_sys_user u "
-                +"INNER JOIN el_sys_user_role ur ON ur.user_id=u.id INNER JOIN el_sys_role r ON r.id=ur.role_id "
-                +"WHERE u.id=? AND u.state=0 GROUP BY u.dept_code",user.getId());
-        if(scopes.isEmpty()||!(scopes.get(0).get("dataScope") instanceof Number scope)) throw error("无法确定当前用户的数据权限");
-        String deptCode=(String)scopes.get(0).get("deptCode");
-        switch(scope.intValue()) {
-            case 1 -> f.add("a.create_by=?",user.getId());
-            case 2 -> { if (!has(deptCode)) throw error("用户未配置部门"); f.add("d.dept_code=?",deptCode); }
-            case 3 -> { if (!has(deptCode)) throw error("用户未配置部门"); f.add("LEFT(d.dept_code,?)=?",deptCode.length(),deptCode); }
-            case 4 -> { }
-            default -> throw error("不支持的数据权限");
-        }
+        f.sql += scope.current().sql("d.dept_code", "a.create_by", f.args);
         if (has(q.getKeyword())) { String v=like(q.getKeyword()); f.add("(a.subject_name LIKE ? ESCAPE '!' OR "+NUMBER+" LIKE ? ESCAPE '!')",v,v); }
         if (has(q.getTitle())) f.add("p.title LIKE ? ESCAPE '!'",like(q.getTitle()));
         if (has(q.getBatchNo())) f.add("a.batch_no LIKE ? ESCAPE '!'",like(q.getBatchNo()));

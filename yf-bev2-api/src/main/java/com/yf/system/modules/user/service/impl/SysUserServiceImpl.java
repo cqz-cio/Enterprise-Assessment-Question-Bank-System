@@ -24,6 +24,7 @@ import com.yf.system.modules.config.service.CfgSwitchService;
 import com.yf.system.modules.menu.service.SysMenuService;
 import com.yf.system.modules.role.entity.SysRole;
 import com.yf.system.modules.user.UserUtils;
+import com.yf.system.modules.user.DepartmentScope;
 import com.yf.system.modules.user.dto.request.*;
 import com.yf.system.modules.user.dto.response.UserListRespDTO;
 import com.yf.system.modules.user.entity.SysUser;
@@ -74,6 +75,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final JwtUtils jwtUtils;
 
     private final AuthRateLimiter authRateLimiter;
+    private final DepartmentScope scope;
 
 
     @Override
@@ -101,13 +103,14 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Override
     public IPage<UserListRespDTO> paging(PagingReqDTO<SysUserQueryReqDTO> reqDTO) {
-        List<String> roles = UserUtils.getRoles();
-        if (roles != null && roles.contains(SysRoleId.HR) && !roles.contains(SysRoleId.ADMIN)) {
-            SysUserQueryReqDTO params = reqDTO.getParams();
-            if (params == null) {
-                params = new SysUserQueryReqDTO();
-                reqDTO.setParams(params);
-            }
+        var currentScope = scope.current();
+        SysUserQueryReqDTO params = reqDTO.getParams();
+        if (params == null) {
+            params = new SysUserQueryReqDTO();
+            reqDTO.setParams(params);
+        }
+        params.setScope(currentScope);
+        if (currentScope.isEmployeeOnly()) {
             params.setRoleIds(List.of(SysRoleId.EMPLOYEE));
         }
         return baseMapper.paging(reqDTO.toPage(), reqDTO.getParams());
@@ -210,6 +213,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         // Refresh presentation data after profile/config migrations without rotating the token.
         session.setRealName(current.getRealName());
         session.setAvatar(current.getAvatar());
+        session.setDeptCode(current.getDeptCode());
+        fillRoleData(session);
         return session;
     }
 
@@ -302,6 +307,12 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
         if (CollectionUtils.isEmpty(roles)) {
             throw new ServiceException(ApiError.ERROR_90010003);
+        }
+        scope.validateManagerAccount(roles, reqDTO.getDeptCode());
+        if (roles.contains(SysRoleId.DEPT_MANAGER) && (StringUtils.isBlank(reqDTO.getUserName())
+                || StringUtils.isBlank(reqDTO.getRealName())
+                || (StringUtils.isBlank(reqDTO.getId()) && StringUtils.isBlank(reqDTO.getPassword())))) {
+            throw new ServiceException("新建主管账号须填写账号、姓名、部门和初始密码！");
         }
 
         QueryWrapper<SysUser> wrapper = new QueryWrapper<>();
@@ -563,7 +574,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             }
         }
         respDTO.setRoleLevel(roleLevel);
-        respDTO.setDataScope(dataScope);
+        scope.validateManagerAccount(roleIds, respDTO.getDeptCode());
+        respDTO.setDataScope(roleIds.contains(SysRoleId.DEPT_MANAGER) ? 2 : dataScope);
         respDTO.setRoles(roleIds);
     }
 
@@ -573,16 +585,17 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (!"APPROVE".equals(reqDTO.getAction()) && !"REJECT".equals(reqDTO.getAction())) {
             throw new ServiceException("审核动作只允许 APPROVE 或 REJECT！");
         }
-        SysUser user = this.getById(reqDTO.getUserId());
+        SysUser user = baseMapper.selectForAudit(reqDTO.getUserId());
         if (user == null || !UserState.AUDIT.equals(user.getState())) {
             throw new ServiceException("待审核员工不存在或状态已变化！");
         }
 
         List<String> roles = sysUserRoleService.listRoleIds(user.getId());
         if (!roles.contains(SysRoleId.EMPLOYEE) || roles.contains(SysRoleId.ADMIN)
-                || roles.contains(SysRoleId.HR) || roles.contains(SysRoleId.CANDIDATE)) {
+                || roles.contains(SysRoleId.HR) || roles.contains(SysRoleId.DEPT_MANAGER) || roles.contains(SysRoleId.CANDIDATE)) {
             throw new ServiceException("只能审核员工注册申请！");
         }
+        scope.requireEmployee(user.getId());
 
         boolean approve = "APPROVE".equals(reqDTO.getAction());
         user.setState(approve ? UserState.NORMAL : UserState.DISABLED);
@@ -596,6 +609,18 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             sysUserRoleService.saveRoles(user.getId(), List.of(SysRoleId.EMPLOYEE), false);
         }
         this.invalidateSessions(List.of(user.getId()));
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void auditRegistrations(UserRegistrationBatchAuditReqDTO reqDTO) {
+        for (String id : reqDTO.getIds().stream().distinct().sorted().toList()) {
+            var item = new UserRegistrationAuditReqDTO();
+            item.setUserId(id);
+            item.setAction(reqDTO.getAction());
+            item.setRemark(reqDTO.getRemark());
+            auditRegistration(item);
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

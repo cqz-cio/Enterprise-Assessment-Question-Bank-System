@@ -1,9 +1,10 @@
 <template>
   <div class="count-box">
     <span>剩余考试时间：</span>
-    <span class="!text-[#409eff]"
+    <span v-if="seconds !== null" class="!text-[#409eff]"
       ><CountDown :left-seconds="seconds" @overdue="examTimeout" @warn="showWarn" />
     </span>
+    <span v-else>正在校时…</span>
   </div>
 </template>
 
@@ -14,7 +15,7 @@ import { CountDown } from '@/components/CountDown'
 import { realTimeStateApi } from '@/api/modules/exam/paper'
 import { useRoute, useRouter } from 'vue-router'
 
-const { push } = useRouter()
+const { replace } = useRouter()
 const route = useRoute()
 
 // 组件参数
@@ -30,7 +31,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['overdue', 'warn', 'handed'])
-const seconds = ref(999999999)
+const seconds = ref<number | null>(null)
+let active = true
 
 // 提前告警
 const showWarn = () => {
@@ -44,24 +46,26 @@ const examTimeout = () => {
 }
 
 // 定时任务方法
-const executeTask = () => {
-  realTimeStateApi({ id: props.paperId }).then((res) => {
+const executeTask = async () => {
+  try {
+    const res = await realTimeStateApi({ id: props.paperId })
+    if (!active) return
     const data = res.data
     if (data.handed) {
       clearTimer()
       emit('handed')
       ElMessage.error('当前试卷已被提交、无法继续答题！')
-      setTimeout(() => {
-        if (route.name === 'CandidateExamEnter' && props.assignmentId) {
-          push({ name: 'CandidateExamResult', query: { assignmentId: props.assignmentId } })
-        } else {
-          push({ name: 'ExamClientResult', query: { id: props.paperId } })
-        }
-      }, 2000)
+      if (route.name === 'CandidateExamEnter' && props.assignmentId) {
+        await replace({ name: 'CandidateExamResult', query: { assignmentId: props.assignmentId } })
+      } else {
+        await replace({ name: 'ExamClientResult', query: { id: props.paperId } })
+      }
       return
     }
     seconds.value = data.leftSeconds
-  })
+  } catch {
+    // Retain the last deadline and retry; a network failure must not discard local answers.
+  }
 }
 
 // 定时器引用
@@ -93,6 +97,7 @@ onMounted(() => {
 
 // 组件卸载时清理
 onUnmounted(() => {
+  active = false
   clearTimer()
 })
 </script>

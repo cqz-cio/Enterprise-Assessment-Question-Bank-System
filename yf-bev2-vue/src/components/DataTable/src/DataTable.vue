@@ -57,11 +57,7 @@
           >导出
         </el-button>
 
-        <el-dropdown
-          v-if="selectedIds.length > 0 && batch"
-          v-hasPermi="batchPermissions"
-          class="!ml-10px"
-        >
+        <el-dropdown v-if="selectedIds.length > 0 && allowedBatch.length > 0" class="!ml-10px">
           <el-button plain type="primary">
             批量操作
             <el-icon class="el-icon--right">
@@ -71,9 +67,8 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item
-                v-for="(item, index) in batch"
+                v-for="(item, index) in allowedBatch"
                 :key="index"
-                v-hasPermi="item.permission"
                 @click="onBatch(item)"
                 >{{ item.label }}
               </el-dropdown-item>
@@ -117,6 +112,7 @@ import request from '@/config/axios'
 import { computed, nextTick, onMounted, PropType, ref, toRefs, unref, watch } from 'vue'
 import { BatchType, OptionsType, TableQueryType } from './types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/store/modules/user'
 
 // 页面参数
 const current = ref(1)
@@ -146,13 +142,17 @@ const props = defineProps({
 const emit = defineEmits(['onAdd', 'onEdit', 'onDelete', 'onBatch', 'onImport'])
 
 // 解构参数便于处理
-const { listUrl, delUrl, rowKey, add, edit, del, ip, op, batch } = toRefs(props.options)
+const { listUrl, delUrl, rowKey, add, edit, del, ip, op } = toRefs(props.options)
 const { query } = toRefs(props)
-const batchPermissions = computed(() =>
-  (props.options.batch || []).flatMap((item) =>
-    item.permission && item.permission.length > 0 ? item.permission : ['']
+const userStore = useUserStore()
+// Dropdown items may render through component/teleport roots: filter before rendering.
+const allowedBatch = computed(() => {
+  const permissions = userStore.getUserInfo?.permissions || []
+  return (props.options.batch || []).filter(
+    ({ permission }) =>
+      !permission?.length || permission.some((value) => value === '' || permissions.includes(value))
   )
-)
+})
 
 // 搜索数据
 const search = () => {

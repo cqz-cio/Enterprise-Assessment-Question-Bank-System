@@ -13,5 +13,6 @@ public interface ExamAssignmentMapper extends BaseMapper<ExamAssignment> {
     ExamAssignment selectByIdForUpdate(@Param("id") String id);
 
     IPage<AssignmentListRespDTO> paging(Page<AssignmentListRespDTO> page,
-                                        @Param("query") AssignmentQueryReqDTO query);
+                                        @Param("query") AssignmentQueryReqDTO query,
+                                        @Param("scope") com.yf.system.modules.user.DepartmentScope.Scope scope);
 }

@@ -77,6 +77,11 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     @Override
     public void save(SysRoleDTO reqDTO) {
 
+        if (com.yf.system.modules.user.enums.SysRoleId.DEPT_MANAGER.equals(reqDTO.getId())
+                && !Integer.valueOf(2).equals(reqDTO.getDataScope())) {
+            throw new ServiceException("部门主管的数据范围固定为本部门！");
+        }
+
         int myLevel = UserUtils.getRoleLevel();
 
         if (reqDTO.getRoleLevel() >= myLevel) {

@@ -26,7 +26,7 @@ class ResultReportTest {
     SysUserLoginDTO user;
     @BeforeEach void setup() {
         database=new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2).addScript("paper-safety-schema.sql").build();
-        db=new JdbcTemplate(database); service=new ResultReportService(db);
+        db=new JdbcTemplate(database); service=new ResultReportService(db,new com.yf.system.modules.user.DepartmentScope(db));
         db.execute("CREATE TABLE el_sys_user(id varchar(64),real_name varchar(128),employee_no varchar(64),dept_code varchar(64),state int DEFAULT 0)");
         db.execute("CREATE TABLE el_sys_user_role(user_id varchar(64),role_id varchar(64))");
         db.execute("CREATE TABLE el_sys_role(id varchar(64),data_scope int)");
@@ -101,7 +101,7 @@ class ResultReportTest {
         q.setSubmittedFrom(null);assertThrows(ServiceException.class,()->service.export(q));
         var mockDb=mock(JdbcTemplate.class);when(mockDb.queryForList(anyString(),any(Object[].class))).thenReturn(List.of(Map.of("dataScope",4,"deptCode","001")));
         when(mockDb.queryForObject(anyString(),eq(Long.class),any(Object[].class))).thenReturn(10001L);
-        assertThrows(ServiceException.class,()->new ResultReportService(mockDb).export(new ResultQuery()));
+        assertThrows(ServiceException.class,()->new ResultReportService(mockDb,new com.yf.system.modules.user.DepartmentScope(mockDb)).export(new ResultQuery()));
     }
     @Test void requestValidationRejectsInvalidEnumsBoundsAndPagination() {
         try(var factory=Validation.buildDefaultValidatorFactory()) {

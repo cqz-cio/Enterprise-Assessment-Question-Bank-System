@@ -43,6 +43,7 @@ public class SysDepartServiceImpl extends ServiceImpl<SysDepartMapper, SysDepart
     private static final String LOCK_DEPT = "sys:lock:dept";
 
     private final RedisService redisService;
+    private final com.yf.system.modules.user.DepartmentScope departmentScope;
 
 
     @Transactional(rollbackFor = Exception.class)
@@ -285,11 +286,14 @@ public class SysDepartServiceImpl extends ServiceImpl<SysDepartMapper, SysDepart
     private void appendDeptQuery(DepartQueryReqDTO params) {
 
         // 用户部门
-        String code = UserUtils.departCode();
-        Integer scope = UserUtils.getDataScope();
+        var current = departmentScope.current();
+        String code = current.getDepartCode();
+        Integer scope = current.getLevel();
 
         // 非全部权限，只过滤自己部门
         if (!DataScope.SCOPE_ALL.equals(scope)) {
+
+            if (StringUtils.isBlank(code)) throw new ServiceException("用户未配置部门！");
 
             int length = code.length() / 3;
             StringBuffer sb = null;
@@ -300,7 +304,7 @@ public class SysDepartServiceImpl extends ServiceImpl<SysDepartMapper, SysDepart
                 } else {
                     sb.append(",");
                 }
-                sb.append("'" + sub + "'");
+                sb.append("'" + sub.replace("'", "''") + "'");
             }
 
             params.setDeptCodes(sb.toString());

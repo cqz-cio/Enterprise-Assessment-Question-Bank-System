@@ -5,7 +5,7 @@
 ## 前置条件
 
 - 在仓库根目录执行；Java 17、Maven、Python 3.10+、Node.js、Docker 可用。
-- 本地 yf-exam-mysql、yf-exam-redis 已运行，源库 yf_boot_exam 至少已有基础迁移（本轮源库 V024）；新版本 V025 只由隔离后端在测试库自动迁移。源库只读取，须含基础角色、菜单、字典及至少两个启用部门。
+- 本地 yf-exam-mysql、yf-exam-redis 已运行，源库 yf_boot_exam 至少已有基础迁移；新版本（当前 V026）只由隔离后端在测试库自动迁移。源库只读取，须含基础角色、菜单、字典及至少两个启用业务部门。
 - 前端依赖已安装，yf-bev2-vue/dist-pro 是当前源码的正式构建；yf-bev2-api/target/release-build/yf-bev2-api.jar 是当前源码的 release 构建。
 - Node 能 require('playwright')，已安装 Chrome。默认使用 channel: chrome，可通过 QA_BROWSER_CHANNEL 改为另一个已安装的兼容浏览器通道。
 - 127.0.0.1:18090 空闲。脚本不会停掉占用端口的已有服务。
@@ -51,8 +51,11 @@ python scripts/ci/run.py 120 python scripts/qa/environment.py cleanup
 | environment.py | 隔离 MySQL/Redis/应用生命周期、同一随机测试密钥重启，源数据指纹校验，进程清理 |
 | acceptance.py | 员工注册审批、候选人认证、三场景配置、权限/归属、幂等建卷与交卷、快照、评分、阅卷、过期、停用与恢复 |
 | extended.py | Excel/Word 部分成功/重复导入、加密清单重启恢复/权限/失效码/到期、报告与下载内容、部门范围、默认时间回归、可选 100 人负载、浏览器夹具 |
+| department_manager.py | 管理员新建主管、两个部门的发放/审核/评分/成绩隔离、混合批次回滚、导出、旧会话部门变更/失效和幂等 |
+| department_manager_flow.py | 双向真实记录隔离、下级部门排除、旧接口/个人资料伪造、错误角色范围/停用部门、批量回滚，以及独立页面验收夹具 |
+| answer_read_access.py | 本人正常读取/跨用户拒绝，以及交卷、终审、停用、过期后的答题卡和答案读取阻断，结果查询仍可用 |
 | answer-queue.cjs | 从实际 Enter.vue 提取逻辑，验证连续保存顺序、切题/交卷前刷新待保存文本、失败保留/阻断、重试与清空 |
-| browser.cjs | 实际页面登录、点击、选题、刷新、文字输入、评分、筛选、上传与下载；14 个浏览器验收场景，包含关闭/刷新恢复清单和修改密码重新登录 |
+| browser.cjs | 实际页面登录、点击、选题、刷新、文字输入、评分、筛选、上传与下载，包含关闭/刷新恢复清单、修改密码及部门主管审核/阅卷/成绩 |
 | run_acceptance.py | 新环境全流程编排、分步日志、最终自动清理 |
 
 业务用例名称、断言与实现放在同一脚本中；失败记录包含用例 ID、原因和耗时。负面用例要求可识别的认证/权限/业务拒绝，不接受 HTTP 5xx、404 或重定向作为“拒绝成功”。

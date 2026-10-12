@@ -27,7 +27,11 @@ class ManualGradingIntegrationTest {
 
     @Configuration static class Extra {
         @Bean JdbcTemplate jdbc(DataSource source) { return new JdbcTemplate(source); }
-        @Bean GradingService grading(JdbcTemplate db,PaperAccessService access,ExamRecordService records) { return new GradingService(db,access,records); }
+        @Bean GradingService grading(JdbcTemplate db,PaperAccessService access,ExamRecordService records) {
+            var scope = mock(com.yf.system.modules.user.DepartmentScope.class);
+            when(scope.current()).thenReturn(new com.yf.system.modules.user.DepartmentScope.Scope("g", "D", 4, false, false));
+            return new GradingService(db,access,records,scope);
+        }
     }
     @BeforeEach void setup() {
         context=new AnnotationConfigApplicationContext(PaperSafetyIntegrationTest.Config.class,Extra.class);

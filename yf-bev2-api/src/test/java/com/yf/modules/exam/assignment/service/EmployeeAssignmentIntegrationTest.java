@@ -168,6 +168,10 @@ class EmployeeAssignmentIntegrationTest {
         @Bean ExamRuleService rules() { return mock(ExamRuleService.class); }
         @Bean PositionService positions() { return mock(PositionService.class); }
         @Bean PaperService papers() { return mock(PaperService.class); }
-        @Bean EmployeeAssignmentService employeeService(JdbcTemplate j,ExamService e,ExamRuleService r,PositionService p,ExamAssignmentMapper a,PaperService paper) { return new EmployeeAssignmentService(j,e,r,p,a,paper); }
+        @Bean EmployeeAssignmentService employeeService(JdbcTemplate j,ExamService e,ExamRuleService r,PositionService p,ExamAssignmentMapper a,PaperService paper) {
+            var scope = mock(com.yf.system.modules.user.DepartmentScope.class);
+            when(scope.current()).thenReturn(new com.yf.system.modules.user.DepartmentScope.Scope("admin", "D", 4, false, false));
+            return new EmployeeAssignmentService(j,e,r,p,a,paper,scope);
+        }
     }
 }

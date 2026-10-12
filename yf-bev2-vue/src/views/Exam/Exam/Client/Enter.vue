@@ -1,5 +1,5 @@
 <template>
-  <el-row :gutter="20">
+  <el-row v-if="paperReady" :gutter="20">
     <el-col :span="24">
       <el-card>
         <div class="top-opt-box">
@@ -7,7 +7,7 @@
             :paperId="paperId"
             :assignment-id="assignmentId"
             @overdue="timeExpired = true"
-            @handed="allowLeave = true"
+            @handed="closeAnswerView"
           />
 
           <el-button
@@ -122,6 +122,13 @@
       </el-card>
     </el-col>
   </el-row>
+  <el-alert
+    v-else-if="loadFailed"
+    title="暂时无法进入考核，请确认考核有效后刷新重试。"
+    type="error"
+    :closable="false"
+  />
+  <el-skeleton v-else :rows="6" animated />
 </template>
 
 <script lang="ts" setup>
@@ -133,12 +140,13 @@ import {
   fillTextAnswerApi,
   handApi,
   quCardApi,
-  quDetailApi
+  quDetailApi,
+  realTimeStateApi
 } from '@/api/modules/exam/paper'
 import { QuCardType } from '@/views/Exam/Exam/types'
 import ExamTimer from '@/views/Exam/Exam/Client/components/ExamTimer.vue'
 
-const { push } = useRouter()
+const { push, replace } = useRouter()
 
 const route = useRoute()
 const paperId = route.query.id as string
@@ -146,6 +154,8 @@ const assignmentId = route.query.assignmentId as string
 const detail = ref<any>({})
 const cardList = ref<QuCardType[]>([])
 const allQuIds = ref<string[]>([])
+const paperReady = ref(false)
+const loadFailed = ref(false)
 
 const hasNext = ref(false)
 let saveQueue: Promise<void> = Promise.resolve()
@@ -161,12 +171,10 @@ let detailRequest = 0
 const hasPrev = ref(false)
 
 // 查找答题卡
-const listCard = () => {
-  quCardApi({ id: paperId }).then((res) => {
-    cardList.value = res.data
-    // 加载第一个题目
-    buildAllQuIds()
-  })
+const listCard = async () => {
+  const res = await quCardApi({ id: paperId })
+  cardList.value = res.data
+  await buildAllQuIds()
 }
 
 // 下一题
@@ -204,7 +212,7 @@ const quDetail = async (quId: string) => {
   }
 }
 
-const buildAllQuIds = () => {
+const buildAllQuIds = async () => {
   const ids: string[] = []
   if (cardList.value.length === 0) {
     return
@@ -218,7 +226,41 @@ const buildAllQuIds = () => {
   allQuIds.value = ids
 
   // 查找第一题
-  if (ids[0]) quDetail(ids[0])
+  if (ids[0]) await quDetail(ids[0])
+}
+
+const closeAnswerView = () => {
+  allowLeave.value = true
+  paperReady.value = false
+  detail.value = {}
+  cardList.value = []
+  if (textTimer) clearTimeout(textTimer)
+  textTimer = undefined
+}
+
+const blockAnswerView = () => {
+  closeAnswerView()
+  loadFailed.value = true
+}
+
+const loadPaper = async () => {
+  try {
+    const { data } = await realTimeStateApi({ id: paperId })
+    if (data.handed) {
+      closeAnswerView()
+      await replace(
+        route.name === 'CandidateExamEnter' && assignmentId
+          ? { name: 'CandidateExamResult', query: { assignmentId } }
+          : { name: 'ExamClientResult', query: { id: paperId } }
+      )
+      return
+    }
+    timeExpired.value = data.leftSeconds <= 0
+    if (!timeExpired.value) await listCard()
+    paperReady.value = true
+  } catch {
+    blockAnswerView()
+  }
 }
 
 // 显示首个题目
@@ -372,7 +414,7 @@ onBeforeUnmount(() => {
 
 // 查找详情
 onMounted(() => {
-  listCard()
+  loadPaper()
 })
 </script>
 

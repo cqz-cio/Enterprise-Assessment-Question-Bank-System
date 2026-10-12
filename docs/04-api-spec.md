@@ -508,6 +508,8 @@ Auth: paper owner
 
 Phase 1 已完成旧试卷详情、答题卡、答题、主动交卷和实时状态的统一 owner 校验；`full-detail` 与试卷管理分页已限制为 `exam:record:list` 管理权限。
 
+2026-10-10 验收补充：`POST /api/exam/paper/qu/list-card` 与 `POST /api/exam/paper/qu/detail-for-answer` 仅允许当前用户读取仍可作答的本人试卷，校验交卷状态、试卷截止时间、分配归属、启用状态及有效期。交卷（含待阅卷）、终审、停用或过期后均拒绝返回题目及已保存答案；恢复有效且未交卷的任务后可继续读取同一份试卷。本人是否通过查询与已授权管理端结果、阅卷接口保持不变。请求和响应字段不变，无新迁移。
+
 考生端响应核心字段：
 
 ```json
@@ -720,3 +722,28 @@ Permission: exam:grading:view AND exam:grading:finalize
 - 固定 600 秒窗口：登录 IP 300、候选人认证 IP 300、注册 IP 60、取验证码 IP 600；账号/考核码各 10 次。账号/考核码认证成功清除自身窗口，IP 请求仍累计。限额包含当前尝试，第 11 次账号/码尝试拦截；被拦截不延长窗口。
 - 超限返回 **HTTP 429**，ApiRest 错误消息及 **Retry-After** 秒数（至少 1）；限流或验证码 Redis 操作失败返回 **HTTP 503** 和通用服务不可用消息。其余业务校验仍沿用 ApiRest 非零 code。
 - Redis 最低需支持 GETDEL（6.2+，本地 Compose 为 7）。本轮没有新增匿名业务接口、授权权限或数据库迁移。
+
+### 部门主管与数据隔离（D-043，2026-10-10）
+
+主管沿用正式账号登录，角色为 `DEPT_MANAGER`、数据范围固定为 `2`。认证每次校验当前账号状态、角色及部门。修改主管账号沿用 `POST /api/sys/user/save`：`roles` 必须仅含 `DEPT_MANAGER`，`deptCode` 必须对应启用的业务部门；新建还须提交 `userName`、`realName`、`password`。迁移不提供默认账号或密码。
+
+新增 `POST /api/sys/user/registration/audit-batch`，权限 `sys:user:registration:audit`：
+
+```json
+{"ids":["employee-id"],"action":"APPROVE","remark":"审核意见（选填）"}
+```
+
+`ids` 必须为 1～100 个非空 ID（每个最多 64 字符）；`action` 为 `APPROVE` 或 `REJECT`；`remark` 最多 500 字。成功返回现有 `ApiRest` 成功结构、无业务数据。内部去重、按 ID 排序并加行锁；只处理待审核员工，任一项非法、非待审核或越权，整批回滚。重复审核明确拒绝，不覆盖第一次审核记录。单个审核接口保持原契约并加入相同的部门校验。
+
+以下既有接口保留请求/响应结构，新增服务端数据范围限制：
+
+| 范围 | 端点（均 POST） | 主管约束 |
+| --- | --- | --- |
+| 员工审核 | `/api/sys/user/paging`、`/registration/audit`（同 user 前缀） | 仅本部门纯员工；请求中的角色或 scope 不能扩大范围 |
+| 部门/岗位 | `/api/sys/depart/tree`、`/api/exam/position/list-enabled`、`/list-by-department` | 部门树和岗位选项按当前范围筛选；按部门请求再次校验 |
+| 员工考核 | `/api/exam/assignment/employee/{options,templates,create,paging,change-status,result-detail}` | 发放、列表、操作和详情限本部门 |
+| 候选人考核 | `/api/exam/assignment/candidate/{create,paging,reset-code,result-detail}`、`/api/exam/assignment/change-status` | 仅本部门；不授予 Excel 导入权限 |
+| 阅卷 | `/api/exam/grading/{paging,positions,detail,question/save,finalize}` | 列表、选项、答卷、评分和终审限本部门，幂等重试也校验归属 |
+| 成绩 | `/api/exam/results/{paging,detail,export-preview,export}` | 列表数量、详情、预览、Excel 使用相同范围 |
+
+考核归属以分配部门为准，与创建人无关；不包含子部门。跨部门列表为空，详情或操作返回业务拒绝且不包含目标数据。权限标记不足仍由 Shiro 拒绝；无需新增匿名入口。员工/候选人本人任务、唯一试卷、断点续答及只显示是否通过的接口不变。

@@ -12,6 +12,7 @@ import com.yf.base.utils.jackson.JsonHelper;
 import com.yf.system.modules.role.entity.SysRole;
 import com.yf.system.modules.role.service.SysRoleService;
 import com.yf.system.modules.user.UserUtils;
+import com.yf.system.modules.user.DepartmentScope;
 import com.yf.system.modules.user.dto.SysUserRoleDTO;
 import com.yf.system.modules.user.dto.request.UserRoleReqDTO;
 import com.yf.system.modules.user.entity.SysUserRole;
@@ -38,6 +39,8 @@ import java.util.List;
 public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleMapper, SysUserRole> implements SysUserRoleService {
 
     private final SysRoleService sysRoleService;
+    private final DepartmentScope scope;
+    private final org.springframework.jdbc.core.JdbcTemplate db;
 
     @Override
     public IPage<SysUserRoleDTO> paging(PagingReqDTO<SysUserRoleDTO> reqDTO) {
@@ -93,7 +96,17 @@ public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleMapper, SysUs
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void batchRole(UserRoleReqDTO reqDTO) {
-
+        if (Integer.valueOf(1).equals(reqDTO.getFlag())) this.checkRoles(reqDTO.getRoleIds());
+        for (String userId : reqDTO.getUserIds()) {
+            var roles = new java.util.HashSet<>(listRoleIds(userId));
+            if (Integer.valueOf(1).equals(reqDTO.getFlag())) roles.addAll(reqDTO.getRoleIds());
+            else roles.removeAll(reqDTO.getRoleIds());
+            if (roles.contains(com.yf.system.modules.user.enums.SysRoleId.DEPT_MANAGER)) {
+                var departments = db.queryForList("SELECT dept_code FROM el_sys_user WHERE id=?", String.class, userId);
+                if (departments.size() != 1) throw new ServiceException("用户不存在！");
+                scope.validateManagerAccount(new ArrayList<>(roles), departments.get(0));
+            }
+        }
         // 先清理
         for (String userId : reqDTO.getUserIds()) {
             for (String roleId : reqDTO.getRoleIds()) {

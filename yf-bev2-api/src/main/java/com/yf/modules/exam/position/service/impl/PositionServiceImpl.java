@@ -31,6 +31,7 @@ import java.util.Set;
 public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> implements PositionService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final com.yf.system.modules.user.DepartmentScope scope;
 
     @Override
     public IPage<PositionDTO> paging(PagingReqDTO<PositionQueryDTO> reqDTO) {
@@ -58,10 +59,20 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
 
     @Override
     public List<Position> listEnabled() {
-        return list(new LambdaQueryWrapper<Position>()
+        var current = scope.current();
+        var wrapper = new LambdaQueryWrapper<Position>()
                 .eq(Position::getStatus, 1)
                 .orderByAsc(Position::getSort)
-                .orderByAsc(Position::getName));
+                .orderByAsc(Position::getName);
+        if (current.getLevel() == 2 || current.getLevel() == 3) {
+            List<Object> args = new ArrayList<>();
+            String filter = current.sql("d.dept_code", "d.create_by", args);
+            var ids = jdbcTemplate.queryForList("SELECT DISTINCT dp.position_id FROM el_depart_position dp "
+                    + "JOIN el_sys_depart d ON d.id=dp.depart_id WHERE d.status=1" + filter, String.class, args.toArray());
+            if (ids.isEmpty()) return List.of();
+            wrapper.in(Position::getId, ids);
+        }
+        return list(wrapper);
     }
 
     @Override
@@ -69,6 +80,7 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
         if (StringUtils.isBlank(departmentId)) {
             return List.of();
         }
+        scope.requireDepartment(departmentId);
         List<String> positionIds = jdbcTemplate.queryForList(
                 "SELECT dp.position_id FROM el_depart_position dp JOIN el_sys_depart d ON d.id = dp.depart_id "
                         + "WHERE dp.depart_id = ? AND d.status = 1 AND d.dept_type = 2 AND d.parent_id <> '0'",
@@ -80,7 +92,12 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
                 .in(Position::getId, positionIds)
                 .eq(Position::getStatus, 1)
                 .orderByAsc(Position::getSort)
-                .orderByAsc(Position::getName)).stream().map(this::toDto).toList();
+                .orderByAsc(Position::getName)).stream().map(this::toDto).map(dto -> {
+                    int index = dto.getDepartmentIds().indexOf(departmentId);
+                    dto.setDepartmentNames(List.of(dto.getDepartmentNames().get(index)));
+                    dto.setDepartmentIds(List.of(departmentId));
+                    return dto;
+                }).toList();
     }
 
     @Override

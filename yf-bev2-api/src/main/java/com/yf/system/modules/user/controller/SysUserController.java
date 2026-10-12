@@ -200,10 +200,18 @@ public class SysUserController extends BaseController {
      * 审核员工注册申请
      */
     @RequiresPermissions("sys:user:registration:audit")
-    @Operation(summary = "审核员工注册", description = "管理员或 HR 通过/驳回待审核员工")
+    @Operation(summary = "审核员工注册", description = "管理员、HR 或本部门主管通过/驳回待审核员工")
     @PostMapping("/registration/audit")
     public ApiRest<?> auditRegistration(@Valid @RequestBody UserRegistrationAuditReqDTO reqDTO) {
         baseService.auditRegistration(reqDTO);
+        return success();
+    }
+
+    @RequiresPermissions("sys:user:registration:audit")
+    @Operation(summary = "批量审核员工注册", description = "最多100人，全部验证权限与待审核状态，失败整批回滚")
+    @PostMapping("/registration/audit-batch")
+    public ApiRest<?> auditRegistrations(@Valid @RequestBody UserRegistrationBatchAuditReqDTO reqDTO) {
+        baseService.auditRegistrations(reqDTO);
         return success();
     }
 

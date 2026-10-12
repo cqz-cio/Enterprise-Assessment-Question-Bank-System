@@ -118,7 +118,7 @@ class AuthSecurityTest {
     @Test void directServiceCallCannotSkipCaptcha() {
         var captcha=mock(CaptchaService.class);var limiter=mock(AuthRateLimiter.class);
         var service=spy(new SysUserServiceImpl(mock(SysUserRoleService.class),mock(RedisService.class),captcha,
-                mock(CfgSwitchService.class),mock(SysMenuService.class),mock(JwtUtils.class),limiter));
+                mock(CfgSwitchService.class),mock(SysMenuService.class),mock(JwtUtils.class),limiter,mock(com.yf.system.modules.user.DepartmentScope.class)));
         var request=new SysUserLoginReqDTO();request.setUserName("known");request.setPassword("password");
         assertThrows(ServiceException.class,()->service.login(request));
         verify(service,never()).getOne(any(),anyBoolean());verifyNoInteractions(limiter);
@@ -127,7 +127,7 @@ class AuthSecurityTest {
         var captcha=mock(CaptchaService.class);var limiter=mock(AuthRateLimiter.class);
         when(captcha.checkCaptcha(KEY,"1234")).thenReturn(true);
         var service=spy(new SysUserServiceImpl(mock(SysUserRoleService.class),mock(RedisService.class),captcha,
-                mock(CfgSwitchService.class),mock(SysMenuService.class),mock(JwtUtils.class),limiter));
+                mock(CfgSwitchService.class),mock(SysMenuService.class),mock(JwtUtils.class),limiter,mock(com.yf.system.modules.user.DepartmentScope.class)));
         var user=new SysUser();user.setId("user-id");user.setUserName("MixedCase");user.setState(0);
         doReturn(user).when(service).getOne(any(),anyBoolean());
         var request=new SysUserLoginReqDTO();request.setUserName("MIXEDCASE");request.setPassword("");

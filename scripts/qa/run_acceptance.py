@@ -72,6 +72,9 @@ def main():
         step('restart backend with original QA keys', [python, 'scripts/qa/environment.py', 'start'], 120)
         for action in ['archive_recovery', 'immediate'] + ([] if options.skip_load else ['load']) + ['reports', 'ui_prepare']:
             step(action, [python, 'scripts/qa/extended.py', action], 120)
+        step('department manager isolation', [python, 'scripts/qa/department_manager.py'], 120)
+        step('bidirectional department isolation', [python, 'scripts/qa/department_manager_flow.py'], 120)
+        step('answer read lifecycle isolation', [python, 'scripts/qa/answer_read_access.py'], 120)
         step('answer save ordering and recovery', ['node', 'scripts/qa/answer-queue.cjs'], 30)
         step('real browser flows', ['node', 'scripts/qa/browser.cjs', 'all'], 120)
         summary['status'] = 'PASS'

@@ -44,6 +44,13 @@
         LEFT JOIN el_paper paper ON paper.id = a.paper_id
         <where>
             a.subject_type = 'CANDIDATE'
+            <choose>
+                <when test="scope.level == 1">AND a.create_by = #{scope.userId}</when>
+                <when test="scope.level == 2">AND d.dept_code = #{scope.departCode}</when>
+                <when test="scope.level == 3">AND LEFT(d.dept_code, CHAR_LENGTH(#{scope.departCode})) = #{scope.departCode}</when>
+                <when test="scope.level == 4"></when>
+                <otherwise>AND a.id = '__NO_SCOPE__'</otherwise>
+            </choose>
             <if test="query != null">
                 <if test="query.subjectName != null and query.subjectName != ''">
                     AND a.subject_name LIKE CONCAT('%', #{query.subjectName}, '%')

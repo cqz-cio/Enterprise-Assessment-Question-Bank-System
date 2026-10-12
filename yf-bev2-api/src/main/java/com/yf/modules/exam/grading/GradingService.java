@@ -6,6 +6,7 @@ import com.yf.modules.exam.grading.dto.*;
 import com.yf.modules.exam.paper.entity.Paper;
 import com.yf.modules.exam.paper.service.PaperAccessService;
 import com.yf.modules.exam.exam.service.ExamRecordService;
+import com.yf.system.modules.user.DepartmentScope;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,7 +21,8 @@ public class GradingService {
     private final JdbcTemplate db;
     private final PaperAccessService access;
     private final ExamRecordService records;
-    private static final String JOINS=" FROM el_paper p LEFT JOIN el_exam_assignment a ON a.id=p.assignment_id AND a.paper_id=p.id AND a.user_id=p.user_id "
+    private final DepartmentScope scope;
+    private static final String JOINS=" FROM el_paper p LEFT JOIN el_exam_assignment a ON a.id=p.assignment_id AND a.paper_id=p.id AND a.user_id=p.user_id AND a.exam_id=p.exam_id "
             +"LEFT JOIN el_exam e ON e.id=p.exam_id LEFT JOIN el_sys_user u ON u.id=p.user_id LEFT JOIN el_position pos ON pos.id=a.position_id "
             +"LEFT JOIN el_sys_depart d ON d.id=a.depart_id LEFT JOIN el_sys_user g ON g.id=p.graded_by ";
     private static final String OBJECTIVE="(SELECT COALESCE(SUM(q.actual_score),0) FROM el_paper_qu q WHERE q.paper_id=p.id AND q.qu_type IN ('radio','multi','judge'))";
@@ -36,6 +38,7 @@ public class GradingService {
     public Map<String,Object> paging(GradingQueryDTO q) {
         String where=" WHERE p.hand_state=1 AND p.grading_state=?";
         List<Object> args=new ArrayList<>(List.of(q.getState()==null?"PENDING":q.getState()));
+        where += scope.current().sql("d.dept_code", "a.create_by", args);
         if (StringUtils.isNotBlank(q.getKeyword())) { where+=" AND (COALESCE(a.subject_name,u.real_name) LIKE ? OR p.title LIKE ?)"; args.add(like(q.getKeyword())); args.add(like(q.getKeyword())); }
         String[] columns={"a.position_id","a.depart_id","e.scene_type","p.exam_id"};
         String[] values={q.getPositionId(),q.getDepartId(),q.getSceneType(),q.getExamId()};
@@ -51,13 +54,16 @@ public class GradingService {
     }
 
     public List<Map<String,Object>> positions() {
-        return db.queryForList("SELECT DISTINCT pos.id,pos.name"+JOINS+" WHERE p.hand_state=1 AND p.grading_state IN ('PENDING','GRADED') AND pos.id IS NOT NULL ORDER BY pos.name,pos.id");
+        List<Object> args = new ArrayList<>();
+        String restriction = scope.current().sql("d.dept_code", "a.create_by", args);
+        return db.queryForList("SELECT DISTINCT pos.id,pos.name"+JOINS+" WHERE p.hand_state=1 AND p.grading_state IN ('PENDING','GRADED') AND pos.id IS NOT NULL"+restriction+" ORDER BY pos.name,pos.id", args.toArray());
     }
 
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ,timeout=20)
     public Map<String,Object> detail(String paperId) { return readDetail(paperId); }
 
     private Map<String,Object> readDetail(String paperId) {
+        scope.requirePaper(paperId);
         var rows=db.queryForList("SELECT "+FIELDS+JOINS+" WHERE p.id=? AND p.hand_state=1 AND p.grading_state IN ('PENDING','GRADED')",paperId);
         if (rows.isEmpty()) throw error("试卷尚未交卷或无需人工阅卷");
         var result=rows.get(0);
@@ -79,6 +85,7 @@ public class GradingService {
         if (found.isEmpty()) throw error("试题不存在");
         String paperId=(String)found.get(0).get("paper_id");
         Paper paper=access.lockForUpdate(paperId); requirePending(paper);
+        scope.requirePaper(paperId);
         var rows=db.queryForList("SELECT * FROM el_paper_qu WHERE id=? AND paper_id=? AND qu_type='short'",request.getPaperQuId(),paperId);
         if (rows.isEmpty()) throw error("只允许评阅简答题");
         var question=rows.get(0); BigDecimal score=request.getScore(), maximum=(BigDecimal)question.get("score");
@@ -100,6 +107,7 @@ public class GradingService {
     public Map<String,Object> finalizePaper(GradeFinalizeDTO request,String grader) {
         requireGrader(grader);
         Paper paper=access.lockForUpdate(request.getPaperId());
+        scope.requirePaper(paper.getId());
         if (Integer.valueOf(1).equals(paper.getHandState())&&"GRADED".equals(paper.getGradingState())) return readDetail(paper.getId());
         requirePending(paper); requireVersion(paper.getId(),request.getExpectedVersion());
         int incomplete=db.queryForObject("SELECT COUNT(*) FROM el_paper_qu WHERE paper_id=? AND (qu_type IS NULL OR qu_type NOT IN ('radio','multi','judge','short') OR (qu_type='short' AND (grading_state<>'GRADED' OR actual_score IS NULL OR actual_score<0 OR actual_score>score)))",Integer.class,paper.getId());

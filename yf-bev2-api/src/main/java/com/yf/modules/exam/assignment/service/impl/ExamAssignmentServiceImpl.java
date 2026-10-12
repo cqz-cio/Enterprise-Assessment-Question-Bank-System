@@ -33,6 +33,7 @@ import com.yf.modules.exam.paper.service.PaperService;
 import com.yf.modules.exam.position.entity.Position;
 import com.yf.modules.exam.position.service.PositionService;
 import com.yf.system.modules.user.entity.SysUser;
+import com.yf.system.modules.user.DepartmentScope;
 import com.yf.system.modules.user.enums.SysRoleId;
 import com.yf.system.modules.user.enums.UserState;
 import com.yf.system.modules.user.service.SysUserRoleService;
@@ -62,10 +63,12 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
     private final PaperService paperService;
     private final AccessCodeManager accessCodeManager;
     private final com.yf.modules.exam.assignment.importing.CandidateIdentityGuard candidateIdentityGuard;
+    private final DepartmentScope scope;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CandidateCreateRespDTO createCandidate(CandidateCreateReqDTO reqDTO) {
+        scope.requireDepartment(reqDTO.getDepartId());
         candidateIdentityGuard.reserve(reqDTO.getCandidateNo(), reqDTO.getBatchNo());
         Position position = positionService.requireEnabled(reqDTO.getPositionId());
         positionService.requireDepartmentPosition(reqDTO.getDepartId(), position.getId());
@@ -169,11 +172,12 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
 
     @Override
     public IPage<AssignmentListRespDTO> candidatePaging(PagingReqDTO<AssignmentQueryReqDTO> reqDTO) {
-        return baseMapper.paging(reqDTO.toPage(), reqDTO.getParams());
+        return baseMapper.paging(reqDTO.toPage(), reqDTO.getParams(), scope.current());
     }
 
     @Override
     public PaperDetailRespDTO candidateResultDetail(String id) {
+        scope.requireAssignment(id);
         ExamAssignment assignment = getById(id);
         if (assignment == null || !SysRoleId.CANDIDATE.equals(assignment.getSubjectType())) {
             throw new ServiceException("候选人考核不存在或无权访问！");
@@ -203,6 +207,7 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
     @Transactional(rollbackFor = Exception.class)
     public CandidateCreateRespDTO resetCode(String id) {
         ExamAssignment assignment = lockCandidate(id);
+        scope.requireAssignment(id);
         ensureEnterable(assignment, new Date());
         String code = generateUniqueCode();
         assignment.setAccessCodeLookup(accessCodeManager.lookup(code));
@@ -217,6 +222,7 @@ public class ExamAssignmentServiceImpl extends ServiceImpl<ExamAssignmentMapper,
     @Transactional(rollbackFor = Exception.class)
     public void changeStatus(AssignmentStatusReqDTO reqDTO) {
         ExamAssignment assignment = lockCandidate(reqDTO.getId());
+        scope.requireAssignment(assignment.getId());
         String action = reqDTO.getAction().trim().toUpperCase(Locale.ROOT);
         if ("DISABLE".equals(action)) {
             if (AssignmentStatus.COMPLETED.equals(assignment.getStatus())

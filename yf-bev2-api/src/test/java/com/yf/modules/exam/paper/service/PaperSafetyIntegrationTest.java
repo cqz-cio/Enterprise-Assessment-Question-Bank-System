@@ -93,6 +93,37 @@ class PaperSafetyIntegrationTest {
         assertEquals(0, db.queryForObject("SELECT actual_score FROM el_paper_qu", BigDecimal.class).signum());
     }
 
+    @Test void submittedOwnerCannotReadAnswerPayloadsButCanReadPassResult() {
+        questions.fillAnswer(answer(List.of("answer")), "u");
+        papers.handPaper("p", "u");
+        assertThrows(ServiceException.class, () -> questions.listQuCard("p", "u"));
+        assertThrows(ServiceException.class, () -> questions.detailForAnswer("p", "q", "u"));
+        assertTrue(assignments.myResult("a", "u").isResultAvailable());
+        assertEquals("Original question", papers.fullDetail("p").getQuList().get(0).getContent());
+    }
+
+    @Test void disabledAssignmentBlocksAnswerReadsAndRestoreKeepsSamePaper() {
+        questions.fillAnswer(answer(List.of("answer")), "u");
+        db.update("UPDATE el_exam_assignment SET status='DISABLED'");
+        assertThrows(ServiceException.class, () -> questions.listQuCard("p", "u"));
+        assertThrows(ServiceException.class, () -> questions.detailForAnswer("p", "q", "u"));
+        db.update("UPDATE el_exam_assignment SET status='STARTED'");
+        assertEquals(1, questions.listQuCard("p", "u").size());
+        assertTrue(questions.detailForAnswer("p", "q", "u").getAnswerList().get(0).getChecked());
+    }
+
+    @Test void expiredPaperBlocksAnswerReads() {
+        db.update("UPDATE el_paper SET limit_time=DATEADD('SECOND',-1,CURRENT_TIMESTAMP)");
+        assertThrows(ServiceException.class, () -> questions.listQuCard("p", "u"));
+        assertThrows(ServiceException.class, () -> questions.detailForAnswer("p", "q", "u"));
+    }
+
+    @Test void expiredAssignmentBlocksAnswerReadsBeforePaperTimerEnds() {
+        db.update("UPDATE el_exam_assignment SET expire_at=DATEADD('SECOND',-1,CURRENT_TIMESTAMP)");
+        assertThrows(ServiceException.class, () -> questions.listQuCard("p", "u"));
+        assertThrows(ServiceException.class, () -> questions.detailForAnswer("p", "q", "u"));
+    }
+
     @Test void ownerDeadlineAndDisabledAssignmentAreEnforced() {
         assertThrows(ServiceException.class, () -> questions.fillAnswer(answer(List.of("answer")), "other"));
         assertThrows(ServiceException.class, () -> papers.handPaper("p", "other"));
@@ -282,7 +313,7 @@ class PaperSafetyIntegrationTest {
             return new PaperServiceImpl(e,r,q,pq,records,j,access,a);
         }
         @Bean ExamAssignmentService assignments(ExamService e, PaperService p) {
-            return new ExamAssignmentServiceImpl(mock(PositionService.class),e,mock(SysUserService.class),mock(SysUserRoleService.class),p,mock(AccessCodeManager.class),mock(com.yf.modules.exam.assignment.importing.CandidateIdentityGuard.class));
+            return new ExamAssignmentServiceImpl(mock(PositionService.class),e,mock(SysUserService.class),mock(SysUserRoleService.class),p,mock(AccessCodeManager.class),mock(com.yf.modules.exam.assignment.importing.CandidateIdentityGuard.class),mock(com.yf.system.modules.user.DepartmentScope.class));
         }
     }
 }

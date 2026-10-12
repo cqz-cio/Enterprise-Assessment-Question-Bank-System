@@ -13,6 +13,7 @@ import com.yf.modules.exam.paper.entity.Paper;
 import com.yf.modules.exam.paper.service.ObjectivePaperPolicy;
 import com.yf.modules.exam.paper.service.PaperService;
 import com.yf.modules.exam.position.service.PositionService;
+import com.yf.system.modules.user.DepartmentScope;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,6 +33,7 @@ public class EmployeeAssignmentService {
     private final PositionService positions;
     private final ExamAssignmentMapper assignments;
     private final PaperService papers;
+    private final DepartmentScope scope;
 
     private static final String ELIGIBLE = " u.state=0 AND EXISTS (SELECT 1 FROM el_sys_user_role ur WHERE ur.user_id=u.id AND ur.role_id='EMPLOYEE') AND NOT EXISTS (SELECT 1 FROM el_sys_user_role cr WHERE cr.user_id=u.id AND cr.role_id='CANDIDATE') ";
     private static final String STATUS = "CASE WHEN a.status IN ('COMPLETED','PENDING_REVIEW','DISABLED','EXPIRED') THEN a.status "
@@ -48,6 +50,7 @@ public class EmployeeAssignmentService {
 
     public Map<String,Object> employees(EmployeeAssignmentQueryDTO q) {
         if (StringUtils.isBlank(q.getDepartId())) return page(List.of(),0,q);
+        scope.requireDepartment(q.getDepartId());
         List<Object> args = new ArrayList<>(List.of(q.getDepartId()));
         String where = " FROM el_sys_user u JOIN el_sys_depart d ON d.dept_code=u.dept_code WHERE d.id=? AND d.status=1 AND " + ELIGIBLE;
         if (StringUtils.isNotBlank(q.getKeyword())) { where += " AND (u.real_name LIKE ? OR u.employee_no LIKE ?)"; args.add(like(q.getKeyword())); args.add(like(q.getKeyword())); }
@@ -58,6 +61,7 @@ public class EmployeeAssignmentService {
 
     public List<Map<String,Object>> templates(EmployeeAssignmentQueryDTO q) {
         if (StringUtils.isBlank(q.getDepartId())) return List.of();
+        scope.requireDepartment(q.getDepartId());
         List<Object> args = new ArrayList<>(List.of(q.getDepartId()));
         String where = " WHERE e.depart_id=? AND e.template_status=1 AND d.status=1 AND d.dept_type=2 AND d.parent_id<>'0' AND p.status=1 "
                 + "AND EXISTS (SELECT 1 FROM el_depart_position dp WHERE dp.depart_id=e.depart_id AND dp.position_id=e.position_id) "
@@ -74,6 +78,7 @@ public class EmployeeAssignmentService {
         // Serialize natural-key retries before reading existing rows, including concurrent first issuance.
         if (jdbc.queryForList("SELECT id FROM el_exam WHERE id=? FOR UPDATE",req.getExamId()).isEmpty()) throw error("考核模板不存在");
         Exam exam = exams.getById(req.getExamId());
+        scope.requireDepartment(exam.getDepartId());
         if (!Integer.valueOf(1).equals(exam.getTemplateStatus())) throw error("考核模板未启用");
         positions.requireDepartmentPosition(exam.getDepartId(),exam.getPositionId());
         positions.requireGradeForPosition(exam.getTargetGradeId(),exam.getPositionId());
@@ -121,6 +126,7 @@ public class EmployeeAssignmentService {
     public Map<String,Object> paging(EmployeeAssignmentQueryDTO q,String owner) {
         List<Object> args=new ArrayList<>(); String where=" WHERE a.subject_type='EMPLOYEE'";
         if (owner!=null) { where+=" AND a.user_id=?"; args.add(owner); }
+        else { where += scope.current().sql("d.dept_code", "a.create_by", args); }
         if (StringUtils.isNotBlank(q.getKeyword())) {
             where+=owner==null ? " AND (a.subject_name LIKE ? OR u.employee_no LIKE ?)" : " AND COALESCE(p.title,e.title) LIKE ?";
             args.add(like(q.getKeyword())); if (owner==null) args.add(like(q.getKeyword()));
@@ -144,6 +150,7 @@ public class EmployeeAssignmentService {
     @Transactional(rollbackFor=Exception.class)
     public void changeStatus(AssignmentStatusReqDTO req) {
         ExamAssignment a=assignments.selectByIdForUpdate(req.getId()); requireEmployee(a);
+        scope.requireAssignment(a.getId());
         Paper p=StringUtils.isBlank(a.getPaperId()) ? null : papers.getById(a.getPaperId());
         if (!a.getExpireAt().after(new Date()) || (p!=null && (!Integer.valueOf(0).equals(p.getHandState()) || p.getLimitTime()==null || !p.getLimitTime().after(new Date())))) throw error("考核已结束或正在结算，不能变更状态");
         if ("DISABLE".equals(req.getAction()) && Set.of("ASSIGNED","STARTED").contains(a.getStatus())) {
@@ -159,6 +166,7 @@ public class EmployeeAssignmentService {
 
     public PaperDetailRespDTO result(String id) {
         ExamAssignment a=assignments.selectById(id); requireEmployee(a);
+        scope.requireAssignment(a.getId());
         Paper p=StringUtils.isBlank(a.getPaperId()) ? null : papers.getById(a.getPaperId());
         if (!"COMPLETED".equals(a.getStatus()) || p==null || !a.getId().equals(p.getAssignmentId()) || !a.getUserId().equals(p.getUserId()) || !Integer.valueOf(1).equals(p.getHandState()) || "PENDING".equals(p.getGradingState())) throw error("考核结果尚未形成");
         return papers.fullDetail(p.getId());

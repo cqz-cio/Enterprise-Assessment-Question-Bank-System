@@ -87,6 +87,19 @@
     <sql id="pagingQuery">
         <where>
             <if test="query!=null">
+                <if test="query.scope!=null">
+                    <choose>
+                        <when test="query.scope.level == 1">AND uc.create_by = #{query.scope.userId}</when>
+                        <when test="query.scope.level == 2">AND uc.dept_code = #{query.scope.departCode}</when>
+                        <when test="query.scope.level == 3">AND LEFT(uc.dept_code, CHAR_LENGTH(#{query.scope.departCode})) = #{query.scope.departCode}</when>
+                        <when test="query.scope.level == 4"></when>
+                        <otherwise>AND uc.id = '__NO_SCOPE__'</otherwise>
+                    </choose>
+                    <if test="query.scope.employeeOnly">
+                        AND NOT EXISTS (SELECT 1 FROM el_sys_user_role protected_role WHERE protected_role.user_id=uc.id
+                            AND protected_role.role_id IN ('admin','HR','DEPT_MANAGER','CANDIDATE'))
+                    </if>
+                </if>
                 <if test="query.deptCode!=null and query.deptCode!=''">
                     AND uc.dept_code LIKE CONCAT(#{query.deptCode},'%')
                 </if>

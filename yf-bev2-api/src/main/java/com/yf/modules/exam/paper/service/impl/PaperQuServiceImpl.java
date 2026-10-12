@@ -112,7 +112,7 @@ public class PaperQuServiceImpl extends ServiceImpl<PaperQuMapper, PaperQu> impl
     @Override
     public List<PaperQuCardRespDTO> listQuCard(String paperId, String userId) {
 
-        paperAccessService.requireOwner(paperId, userId);
+        paperAccessService.requireWritableOwner(paperId, userId);
 
 
         //查找全部题目
@@ -154,7 +154,7 @@ public class PaperQuServiceImpl extends ServiceImpl<PaperQuMapper, PaperQu> impl
 
     @Override
     public PaperQuDetailDTO detailForAnswer(String paperId, String quId, String userId) {
-        paperAccessService.requireOwner(paperId, userId);
+        paperAccessService.requireWritableOwner(paperId, userId);
         return baseMapper.detailForAnswer(paperId, quId);
     }
 

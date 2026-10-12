@@ -56,6 +56,11 @@ class CandidateImportTest {
         archive=spy(new CandidateImportArchive(db,new ObjectMapper(),manager,PEPPER));
         service=new CandidateImportService(db,assignments,guard,factory.getValidator(),archive,codes);
         users=mockStatic(UserUtils.class); users.when(UserUtils::getUserId).thenReturn("hr");
+        users.when(() -> UserUtils.getUser(false)).thenAnswer(call -> {
+            var user = new com.yf.ability.shiro.dto.SysUserLoginDTO();
+            user.setId(UserUtils.getUserId());
+            return user;
+        });
         var tx=new TransactionTemplate(new DataSourceTransactionManager(database));
         when(assignments.createCandidate(any())).thenAnswer(call->tx.execute(status->{
             CandidateCreateReqDTO req=call.getArgument(0); guard.reserve(req.getCandidateNo(),req.getBatchNo());
@@ -205,7 +210,10 @@ class CandidateImportTest {
         try {
             List<Callable<Integer>> calls=new ArrayList<>();
             for(int i=0;i<3;i++) calls.add(()->{try(var current=mockStatic(UserUtils.class)){
-                current.when(UserUtils::getUserId).thenReturn("hr");return restarted(PEPPER).commit(task.getTaskId()).getSuccessCount();
+                current.when(UserUtils::getUserId).thenReturn("hr");
+                var principal = new com.yf.ability.shiro.dto.SysUserLoginDTO(); principal.setId("hr");
+                current.when(() -> UserUtils.getUser(false)).thenReturn(principal);
+                return restarted(PEPPER).commit(task.getTaskId()).getSuccessCount();
             }});
             for(var f:pool.invokeAll(calls,10,TimeUnit.SECONDS)) assertEquals(2,f.get());
             assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM el_exam_assignment",Integer.class));verify(assignments,times(2)).createCandidate(any());

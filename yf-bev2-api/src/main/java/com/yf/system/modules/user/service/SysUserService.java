@@ -100,6 +100,8 @@ public interface SysUserService extends IService<SysUser> {
      */
     void auditRegistration(UserRegistrationAuditReqDTO reqDTO);
 
+    void auditRegistrations(com.yf.system.modules.user.dto.request.UserRegistrationBatchAuditReqDTO reqDTO);
+
     /**
      * 修改账号状态并撤销受影响用户的活动会话。
      */

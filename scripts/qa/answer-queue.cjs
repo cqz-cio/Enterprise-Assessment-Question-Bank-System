@@ -8,13 +8,14 @@ const raw=tree.statements.filter(s=>!ts.isImportDeclaration(s)).map(s=>s.getFull
 const js=ts.transpileModule(raw,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.None}}).outputText;
 const events=[],pending=[],messages=[],submissions=[];
 const ctx={ref:v=>({value:v}),onMounted:()=>{},onBeforeUnmount:()=>{},onBeforeRouteLeave:()=>{},setTimeout,clearTimeout,
- useRoute:()=>({name:'CandidateExamEnter',query:{id:'p',assignmentId:'a'}}),useRouter:()=>({push:async()=>events.push('navigation')}),
+ useRoute:()=>({name:'CandidateExamEnter',query:{id:'p',assignmentId:'a'}}),useRouter:()=>({push:async()=>events.push('navigation'),replace:async()=>events.push('result-replacement')}),
  ElMessage:{error:x=>messages.push(x)},ElMessageBox:{confirm:async()=>{}},
  fillAnswerApi:x=>new Promise((resolve,reject)=>{events.push(['objective',x]);pending.push({resolve,reject})}),
  fillTextAnswerApi:x=>new Promise((resolve,reject)=>{events.push(['text',x]);pending.push({resolve,reject})}),
- handApi:async x=>submissions.push(x),quCardApi:async()=>({data:[]}),quDetailApi:async x=>({data:{quId:x.quId,quType:'short',textAnswer:'restored'}})
+ realTimeStateApi:async()=>({data:{handed:true,leftSeconds:0}}),
+ handApi:async x=>submissions.push(x),quCardApi:async()=>{events.push('answer-card-read');return {data:[]}},quDetailApi:async x=>({data:{quId:x.quId,quType:'short',textAnswer:'restored'}})
 };
-vm.createContext(ctx);vm.runInContext(js+';globalThis.sut={detail,cardList,itemClick,handPaper,quDetail,scheduleTextSave,saveTextAnswer,saveStates,getQueue:()=>saveQueue};',ctx,{timeout:2000});
+vm.createContext(ctx);vm.runInContext(js+';globalThis.sut={detail,cardList,itemClick,handPaper,quDetail,scheduleTextSave,saveTextAnswer,saveStates,loadPaper,paperReady,loadFailed,getQueue:()=>saveQueue};',ctx,{timeout:2000});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  const s=ctx.sut;s.cardList.value=[{itemList:[{quId:'q1',answered:false},{quId:'q2',answered:false}]}];
@@ -32,5 +33,10 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  s.saveTextAnswer();await tick();pending[4].resolve({data:{filled:true}});await s.getQueue();assert.equal(s.saveStates.value.q2,'saved');
  s.detail.value.textAnswer='';s.scheduleTextSave();const submit=s.handPaper();await tick();assert.equal(submissions.length,1);assert.equal(events.filter(x=>x[0]==='text').at(-1)[1].answerText,'');
  pending[5].resolve({data:{filled:false}});await submit;assert.equal(submissions.length,2);assert.equal(s.cardList.value[0].itemList[1].answered,false);
+ await s.loadPaper();assert.equal(s.paperReady.value,false);assert.equal(s.cardList.value.length,0);
+ assert.equal(events.filter(x=>x==='answer-card-read').length,0);assert.equal(events.at(-1),'result-replacement');
+ ctx.realTimeStateApi=async()=>{throw new Error('forbidden')};await s.loadPaper();
+ assert.equal(s.paperReady.value,false);assert.equal(s.loadFailed.value,true);assert.equal(events.filter(x=>x==='answer-card-read').length,0);
  console.log('PASS: ordered objective saves; text debounce flushed before navigation/submit; failed text retained and blocks switching/submission; retry and empty answer supported.');
+ console.log('PASS: submitted paper redirects before reading answers; failed entry never exposes the answer view.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

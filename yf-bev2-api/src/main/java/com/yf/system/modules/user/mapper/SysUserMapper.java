@@ -21,6 +21,9 @@ import java.util.List;
  */
 public interface SysUserMapper extends BaseMapper<SysUser> {
 
+    @org.apache.ibatis.annotations.Select("SELECT * FROM el_sys_user WHERE id=#{id} FOR UPDATE")
+    SysUser selectForAudit(@Param("id") String id);
+
     /**
      * 查找数据用于导出
      *

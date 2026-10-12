@@ -28,6 +28,7 @@
         <el-table-column :align="'center'" label="状态" width="180px">
           <template #default="scope">
             <el-tag v-if="scope.row.state === 0" type="success">正常</el-tag>
+            <el-tag v-else-if="scope.row.state === 2" type="warning">待审核</el-tag>
             <el-tag v-else type="danger">禁用</el-tag>
           </template>
         </el-table-column>
@@ -139,6 +140,20 @@ let options = ref<OptionsType>({
   },
   // 批量操作
   batch: [
+    {
+      key: 'approve',
+      label: '审核通过',
+      permission: ['sys:user:registration:audit'],
+      params: { action: 'APPROVE' },
+      action: '/api/sys/user/registration/audit-batch'
+    },
+    {
+      key: 'reject',
+      label: '审核驳回',
+      permission: ['sys:user:registration:audit'],
+      params: { action: 'REJECT' },
+      action: '/api/sys/user/registration/audit-batch'
+    },
     {
       key: 'state',
       label: '启用',

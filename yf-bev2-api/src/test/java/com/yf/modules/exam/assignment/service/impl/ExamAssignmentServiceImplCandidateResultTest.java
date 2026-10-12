@@ -37,7 +37,7 @@ class ExamAssignmentServiceImplCandidateResultTest {
         paperService = mock(PaperService.class);
         service = new ExamAssignmentServiceImpl(
                 mock(PositionService.class), mock(ExamService.class), mock(SysUserService.class),
-                mock(SysUserRoleService.class), paperService, mock(AccessCodeManager.class),mock(com.yf.modules.exam.assignment.importing.CandidateIdentityGuard.class));
+                mock(SysUserRoleService.class), paperService, mock(AccessCodeManager.class),mock(com.yf.modules.exam.assignment.importing.CandidateIdentityGuard.class),mock(com.yf.system.modules.user.DepartmentScope.class));
         ReflectionTestUtils.setField(service, "baseMapper", assignmentMapper);
     }
 

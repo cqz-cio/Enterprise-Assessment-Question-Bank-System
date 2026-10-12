@@ -41,7 +41,8 @@ public class CandidateImportService {
                 +"JOIN el_sys_menu m ON m.id=rm.menu_id WHERE x.user_id=u.id AND m.permission_tag='exam:assignment:candidate:import') GROUP BY u.dept_code",id);
         if(found.isEmpty() || !(found.get(0).get("dataScope") instanceof Number n) || n.intValue()<1 || n.intValue()>4)
             throw new ServiceException("无候选人导入权限或账号已停用");
-        return new Scope(id,n.intValue(),(String)found.get(0).get("deptCode"));
+        var current = new com.yf.system.modules.user.DepartmentScope(db).current();
+        return new Scope(id,current.getLevel(),current.getDepartCode());
     }
 
     public byte[] template() {
